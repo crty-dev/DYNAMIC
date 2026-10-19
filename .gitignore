@@ -1,0 +1,26 @@
+# Node
+node_modules/
+npm-debug.log*
+.npm/
+
+# Vite / build
+dist/
+.vite/
+
+# Cloudflare
+.wrangler/
+.dev.vars*
+.wranglerignore
+
+# Environment & secrets (NEVER commit)
+.env
+.env.*
+!.env.example
+
+# OpenCode local config (contains live MCP tokens - must NOT be committed)
+.opencode/
+
+# OS / editor
+Thumbs.db
+.DS_Store
+*.log
