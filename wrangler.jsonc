@@ -1,0 +1,23 @@
+{
+  // DYNAMIC — Cloudflare Workers + Static Assets (tek deployment birimi)
+  // Run: npm run dev | npm run preview | npm run deploy
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dynamic",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dynamic",
+      "database_id": "68aa5ed0-6795-4ac1-9b1d-48df817a5deb"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
