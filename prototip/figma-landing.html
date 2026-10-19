@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<!--
+  VaultFlow — SaaS Futuristic App (Webflow Landing Page Design, Community)
+  Figma node 101-982 ("Building SignalPage", 720 × 1907) 1:1 reproduksiyonu.
+
+  NOT (erişilemeyen varlıklar): Bu Figma bağlantısından tasarımın orijinal
+  raster/varlık dosyaları (dashboard ekranı PNG'i, marka logoları SVG'leri)
+  MCP üzerinden okunamadı (yalnızca görüşme/yorum API'si mevcuttu). Bu
+  yüzden dashboard mockup ve 7 güven logosu, tasarım üzerinde ölçülen
+  oran/ağırlıklara göre yerleşik SVG/işaretleme ile yeniden çizildi.
+  Metin, boşluk, boyut, renk ve yarıçaplar tasarımın kendisinden ölçüldü.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vaultflow — Modern analytics for the modern world</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ============ tasarım belirteçleri (:root) ============ */
+    :root {
+      /* renkler */
+      --color-void: #050309;
+      --color-bg-dark: #070310;
+      --color-hero-base: #140625;
+      --color-hero-pink: #e93bc4;
+      --color-hero-violet: #7c3aed;
+      --color-hero-deep: #1a0a30;
+      --color-white: #ffffff;
+      --color-text: #f4f1fa;
+      --color-text-sub: #c9c6d6;
+      --color-text-muted: #b3afbf;
+      --color-text-faint: #8c8899;
+      --color-lavender: #cbb8f4;
+      --color-accent: #8b5cf6;
+      --color-accent-strong: #a855f7;
+      --color-accent-deep: #6d28d9;
+      --color-accent-pink: #ec4899;
+      --color-card-border: rgba(167, 139, 250, 0.26);
+      --color-line: rgba(255, 255, 255, 0.14);
+      --color-btn-bg: #ffffff;
+      --color-btn-text: #101014;
+      --color-dash-bg: #0b0914;
+      --color-dash-panel: #0d0b17;
+      --color-dash-border: rgba(255, 255, 255, 0.09);
+      --color-dash-muted: #8f8ba0;
+      --color-dash-purple: #a855f7;
+      --color-dash-gray: #57566a;
+      --color-code-bg: #12101b;
+      --color-code-line: #6f6b7c;
+
+      /* yazı tipi ölçüleri */
+      --font-sans: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --fs-h1: 36px;          --lh-h1: 39px;
+      --fs-h2: 28px;          --lh-h2: 36px;
+      --fs-cta-h: 26px;       --lh-cta-h: 32px;
+      --fs-card-title: 17px;  --lh-card-title: 24px;
+      --fs-body: 10.5px;      --lh-body: 15px;
+      --fs-small: 9.5px;      --lh-small: 14px;
+      --fs-tiny: 8.5px;       --lh-tiny: 12px;
+      --fs-micro: 8px;        --lh-micro: 11px;
+
+      /* boşluk */
+      --sp-page-x: 64px;
+      --sp-card-pad: 20px;
+      --sp-card-gap: 17px;
+      --sp-section-gap: 80px;
+
+      /* yarıçap ve gölge */
+      --radius-card: 12px;
+      --radius-icon: 7px;
+      --radius-pill: 999px;
+      --radius-dash: 10px;
+      --shadow-card: 0 0 32px rgba(139, 92, 246, 0.16);
+      --shadow-dash: 0 0 70px rgba(124, 58, 237, 0.35);
+    }
+
+    /* ============ sıfırlama ============ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-void);
+      color: var(--color-text);
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+    }
+    img, svg { display: block; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+    ul { list-style: none; }
+    :focus-visible { outline: 2px solid var(--color-accent-strong); outline-offset: 2px; border-radius: 4px; }
+
+    /* ============ sayfa çerçevesi ============ */
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      background: var(--color-bg-dark);
+      overflow: clip;
+      position: relative;
+    }
+
+    /* ============ gezinme çubuğu ============ */
+    .site-header { position: relative; z-index: 10; }
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 16px;
+      min-height: 36px;
+      background: rgba(10, 6, 20, 0.35);
+    }
+    .nav__brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-white);
+      letter-spacing: 0.1px;
+    }
+    .nav__brand-mark {
+      width: 13px; height: 13px;
+      border-radius: 4px;
+      background: var(--color-white);
+      display: grid; place-items: center;
+      color: #17121f;
+      font-size: 8px; font-weight: 700; line-height: 1;
+    }
+    .nav__menu {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .nav__link {
+      font-size: 9.5px;
+      color: #d9d5e4;
+      transition: color 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .nav__link:hover { color: var(--color-white); }
+    .nav__link-caret {
+      width: 6px; height: 6px;
+      border-left: 1px solid currentColor;
+      border-bottom: 1px solid currentColor;
+      transform: rotate(-45deg) translateY(-1px);
+      transition: transform 0.2s ease;
+    }
+    .nav__link:hover .nav__link-caret { transform: rotate(45deg) translateY(1px); }
+    .nav__actions { display: inline-flex; align-items: center; gap: 8px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: var(--radius-pill);
+      font-weight: 400;
+      white-space: nowrap;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+    .btn--nav { height: 22px; padding: 0 13px; font-size: 9px; }
+    .btn--solid { background: var(--color-btn-bg); color: var(--color-btn-text); }
+    .btn--solid:hover { background: #e6e2f2; }
+    .btn--outline {
+      color: var(--color-white);
+      border: 1px solid rgba(255, 255, 255, 0.32);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .btn--outline:hover { background: rgba(255, 255, 255, 0.08); }
+    .btn--lg { height: 26px; padding: 0 17px; font-size: 9.5px; }
+
+    .nav__toggle {
+      display: none;
+      width: 30px; height: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 8px;
+      place-items: center;
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .nav__toggle-line, .nav__toggle-line::before, .nav__toggle-line::after {
+      display: block;
+      width: 14px; height: 1.5px;
+      background: var(--color-white);
+      border-radius: 2px;
+      position: relative;
+      transition: transform 0.3s ease, opacity 0.2s ease;
+    }
+    .nav__toggle-line::before, .nav__toggle-line::after { content: ""; position: absolute; left: 0; }
+    .nav__toggle-line::before { top: -4.5px; }
+    .nav__toggle-line::after { top: 4.5px; }
+    .nav__toggle[aria-expanded="true"] .nav__toggle-line { transform: rotate(45deg); }
+    .nav__toggle[aria-expanded="true"] .nav__toggle-line::before { opacity: 0; transform: translateX(-6px); }
+    .nav__toggle[aria-expanded="true"] .nav__toggle-line::after { transform: rotate(-90deg) translateX(4.5px); }
+
+    .nav-mobile {
+      position: absolute;
+      inset: 36px 12px auto 12px;
+      z-index: 20;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      border-radius: 12px;
+      border: 1px solid rgba(167, 139, 250, 0.2);
+      background: rgba(14, 6, 28, 0.96);
+      box-shadow: 0 18px 40px rgba(5, 2, 12, 0.6);
+      transition: max-height 0.35s ease, opacity 0.3s ease, transform 0.35s ease;
+      transform: translateY(-6px);
+    }
+    .nav-mobile.is-open {
+      max-height: 320px;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .nav-mobile__inner {
+      display: grid;
+      gap: 4px;
+      padding: 14px;
+    }
+    .nav-mobile__link {
+      font-size: 12px;
+      color: #e6e2f2;
+      padding: 9px 10px;
+      border-radius: 8px;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .nav-mobile__link:hover { background: rgba(255, 255, 255, 0.06); color: var(--color-white); }
+    .nav-mobile__actions {
+      display: grid;
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin-top: 6px;
+    }
+    .nav-mobile__actions .btn { justify-content: center; height: 32px; font-size: 11px; }
+
+    /* ============ hero ============ */
+    .hero {
+      position: relative;
+      padding: 55px 0 0;
+      background:
+        radial-gradient(220px 160px at 32% -4%, rgba(233, 59, 196, 0.55), transparent 70%),
+        radial-gradient(240px 190px at 62% 4%, rgba(124, 58, 237, 0.5), transparent 72%),
+        radial-gradient(430px 300px at 50% 0%, rgba(90, 24, 180, 0.35), transparent 78%),
+        radial-gradient(560px 420px at 50% 30%, rgba(58, 16, 120, 0.35), transparent 80%),
+        linear-gradient(180deg, var(--color-hero-base) 0%, #0d0519 62%, #070310 100%);
+    }
+    .hero__inner { position: relative; text-align: center; }
+    .hero__banner {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 23px;
+      padding: 0 12px;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.07);
+      font-size: 8.5px;
+      color: #eae5f5;
+    }
+    .hero__banner-link { text-decoration: underline; text-underline-offset: 2px; color: var(--color-white); font-weight: 500; }
+    .hero__title {
+      margin: 12px auto 0;
+      font-size: var(--fs-h1);
+      line-height: var(--lh-h1);
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      color: #eceaf2;
+      max-width: 480px;
+    }
+    .hero__title-sub { color: #b3aebf; font-weight: 600; display: block; }
+    .hero__lede {
+      margin: 13px auto 0;
+      font-size: 11px;
+      line-height: 15px;
+      color: #d3d0dc;
+      max-width: 320px;
+      font-weight: 300;
+    }
+    .hero__actions {
+      margin-top: 24px;
+      display: flex;
+      justify-content: center;
+      gap: 9px;
+    }
+
+    /* ---------- 1:1 dashboard mockup ---------- */
+    .hero__art { position: relative; margin: 40px auto 0; width: 480px; max-width: calc(100% - 32px); }
+    .dashboard {
+      border-radius: var(--radius-dash);
+      border: 1px solid var(--color-dash-border);
+      background: var(--color-dash-bg);
+      box-shadow: var(--shadow-dash), 0 24px 60px rgba(3, 1, 8, 0.55);
+      overflow: hidden;
+      font-size: 7px;
+      text-align: left;
+    }
+    .dash__bar {
+      display: flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 9px;
+      gap: 13px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .dash__burger { display: grid; gap: 2px; width: 9px; }
+    .dash__burger span { height: 1px; background: #b9b6c6; border-radius: 1px; }
+    .dash__tab {
+      font-size: 7.5px;
+      color: var(--color-dash-muted);
+      position: relative;
+      padding: 4px 1px;
+    }
+    .dash__tab--active { color: var(--color-white); font-weight: 500; }
+    .dash__tab--active::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; bottom: -4px;
+      height: 1.5px;
+      border-radius: 2px;
+      background: var(--color-dash-purple);
+    }
+    .dash__bar-divider { margin-left: auto; width: 1px; height: 12px; background: rgba(255, 255, 255, 0.08); }
+    .dash__bar-spacer { width: 10px; }
+
+    .dash__body { display: grid; grid-template-columns: 28px 1fr; min-height: 213px; }
+    .dash__side {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 0;
+      background: #08070e;
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .dash__side-ico {
+      width: 15px; height: 15px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.07);
+      position: relative;
+    }
+    .dash__side-ico::after {
+      content: "";
+      position: absolute; inset: 3.5px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.35);
+    }
+    .dash__side-ico--p1 { background: linear-gradient(135deg, #f073d8, #d243b3); }
+    .dash__side-ico--p2 { background: linear-gradient(135deg, #af7bf7, #8540e8); }
+    .dash__side-ico--p3 { background: linear-gradient(135deg, #c25cf1, #8b2fe0); }
+    .dash__side-ico--act::after { inset: 2.5px; border-radius: 3px; background: rgba(255, 255, 255, 0.55); }
+    .dash__side-space { flex: 1; }
+
+    .dash__main { padding: 9px 12px 12px; background: var(--color-dash-panel); }
+    .dash__crumb { font-size: 6.5px; color: #8d8a9e; letter-spacing: 0.2px; }
+    .dash__siteline { display: flex; align-items: center; gap: 7px; margin-top: 5px; }
+    .dash__site-chip {
+      width: 14px; height: 14px; border-radius: 4px;
+      background: var(--color-white);
+      color: #17121f;
+      display: grid; place-items: center;
+      font-size: 7px; font-weight: 700;
+    }
+    .dash__site-name { font-size: 10.5px; font-weight: 600; color: var(--color-white); letter-spacing: 0.2px; }
+    .dash__site-add {
+      width: 13px; height: 13px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 999px;
+      display: grid; place-items: center;
+      color: #cfcbdd; font-size: 8.5px; line-height: 1;
+    }
+    .dash__total { display: flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 8.5px; font-weight: 600; color: #ece9f4; }
+    .dash__total-info {
+      width: 8px; height: 8px; border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #bdb9cc; font-size: 6px;
+      display: grid; place-items: center; font-style: normal;
+    }
+    .dash__grid { display: grid; grid-template-columns: 1fr 118px; gap: 10px; margin-top: 6px; }
+    .dash__chart { position: relative; }
+    .dash__chart svg { width: 100%; height: auto; }
+    .dash__tooltip {
+      position: absolute;
+      left: 21%;
+      top: 12%;
+      background: #141217;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      padding: 4px 7px 5px;
+      text-align: center;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+    }
+    .dash__tooltip-strong { display: block; font-size: 8.5px; font-weight: 600; color: var(--color-white); letter-spacing: 0.2px; }
+    .dash__tooltip-sub { display: block; font-size: 6.5px; color: #b3aec4; margin-top: 1px; }
+    .dash__picker {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 15px;
+      padding: 0 8px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.04);
+      color: #ded9ea;
+      font-size: 6.5px;
+    }
+    .dash__right { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+    .dash__kpirow { display: flex; align-items: flex-start; justify-content: flex-end; gap: 8px; }
+    .dash__ring { position: relative; width: 34px; height: 34px; flex: none; }
+    .dash__ring-label {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      font-size: 8px; font-weight: 600; color: var(--color-white); letter-spacing: 0.3px;
+    }
+    .dash__legend { display: grid; gap: 5px; align-content: start; }
+    .dash__legend-row { display: grid; grid-template-columns: 26px 1fr; align-items: center; gap: 5px; }
+    .dash__legend-name { font-size: 6.5px; color: #cfcadf; }
+    .dash__bar-track { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+    .dash__bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--color-dash-purple), #d946ef); }
+
+    /* ============ güven logoları ============ */
+    .logos { background: var(--color-bg-dark); padding: 44px 32px 56px; text-align: center; }
+    .logos__title { font-size: 10.5px; color: #c9bdf1; font-weight: 300; letter-spacing: 0.2px; }
+    .logos__row {
+      margin-top: 17px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 37px;
+      flex-wrap: wrap;
+    }
+    .logos__item { color: #efeaff; opacity: 0.95; }
+    .logos__item svg { fill: currentColor; }
+    .logos__item--del, .logos__item--ted, .logos__item--zen { font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
+    .logos__item--rak { font-size: 11.5px; font-weight: 700; font-style: italic; }
+    .logos__item--pf { font-size: 8px; font-weight: 700; letter-spacing: 0.6px; }
+    .logos__item--ncr, .logos__item--lat { font-size: 11px; font-weight: 700; }
+
+    /* ============ features ============ */
+    .features { padding: 0 var(--sp-page-x) var(--sp-section-gap); background: var(--color-bg-dark); }
+    .features__head { text-align: center; }
+    .features__title {
+      font-size: var(--fs-h2);
+      line-height: var(--lh-h2);
+      font-weight: 500;
+      color: #efe9f8;
+      letter-spacing: -0.2px;
+      margin: 0 auto;
+      max-width: 320px;
+    }
+    .features__lede {
+      margin: 22px auto 0;
+      max-width: 300px;
+      font-size: 10.5px;
+      line-height: 15px;
+      color: #b7b3c6;
+      font-weight: 300;
+    }
+    .features__grid {
+      margin-top: 48px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-card-gap);
+    }
+    .feature-card {
+      border-radius: var(--radius-card);
+      border: 1px solid var(--color-card-border);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(124, 58, 237, 0.05));
+      box-shadow: var(--shadow-card);
+      padding: var(--sp-card-pad);
+      min-height: 216px;
+    }
+    .feature-card--icon {
+      width: 24px; height: 24px;
+      border-radius: var(--radius-icon);
+      background: linear-gradient(135deg, #b558f6, #7c3aed);
+      display: grid; place-items: center;
+      color: var(--color-white);
+    }
+    .feature-card--icon-pink { background: linear-gradient(135deg, #f238ae, #a21cf0); }
+    .feature-card__title {
+      margin-top: 20px;
+      font-size: var(--fs-card-title);
+      line-height: var(--lh-card-title);
+      font-weight: 500;
+      color: var(--color-white);
+    }
+    .feature-card__text {
+      margin-top: 7px;
+      font-size: var(--fs-body);
+      line-height: var(--lh-body);
+      color: #c9c6d6;
+      font-weight: 300;
+    }
+    .feature-card__link {
+      display: inline-block;
+      margin-top: 11px;
+      font-size: 9.5px;
+      color: var(--color-white);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: rgba(255, 255, 255, 0.75);
+      transition: opacity 0.2s ease;
+    }
+    .feature-card__link:hover { opacity: 0.75; }
+
+    .feature-card--wide {
+      grid-column: 1 / -1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 264px;
+      gap: 24px;
+      align-items: start;
+      padding: var(--sp-card-pad) var(--sp-card-pad) var(--sp-card-pad) var(--sp-card-pad);
+    }
+    .feature-card--wide__copy { padding-top: 8px; }
+    .feature-card--wide__text { max-width: 300px; }
+
+    .code-mock {
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--color-code-bg);
+      overflow: hidden;
+      box-shadow: 0 14px 34px rgba(2, 0, 8, 0.5);
+    }
+    .code-mock__bar { display: flex; height: 21px; background: rgba(255, 255, 255, 0.03); border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+    .code-mock__tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 12px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #e6e2f0;
+      font-size: 7.5px;
+      border-right: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .code-mock__body {
+      padding: 9px 0;
+      font-family: var(--font-sans);
+      font-size: 7.5px;
+      line-height: 14.5px;
+      color: #c9c7d5;
+    }
+    .code-mock__row { display: grid; grid-template-columns: 22px 1fr; }
+    .code-mock__num { text-align: center; color: var(--color-code-line); }
+    .code-mock__kw { color: #c084fc; }
+    .code-mock__cm { color: #7d7f8a; }
+    .code-mock__key { color: #e8e6f0; }
+
+    /* ============ cta ============ */
+    .cta { padding: 0 var(--sp-page-x) 44px; background: var(--color-bg-dark); }
+    .cta-card {
+      border-radius: var(--radius-card);
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      background: rgba(255, 255, 255, 0.02);
+      box-shadow: var(--shadow-card);
+      padding: 28px 40px 26px;
+      text-align: center;
+    }
+    .cta-card__title {
+      font-size: var(--fs-cta-h);
+      line-height: var(--lh-cta-h);
+      font-weight: 500;
+      color: #f2edf9;
+      letter-spacing: -0.2px;
+      max-width: 280px;
+      margin: 0 auto;
+    }
+    .cta-card__text {
+      margin: 14px auto 0;
+      max-width: 340px;
+      font-size: var(--fs-body);
+      line-height: var(--lh-body);
+      color: #bebacb;
+      font-weight: 300;
+    }
+    .cta-card__btn { margin-top: 18px; }
+
+    /* ============ footer ============ */
+    .site-footer { background: var(--color-bg-dark); padding: 36px var(--sp-page-x) 14px; }
+    .footer__grid {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      column-gap: 42px;
+      row-gap: 26px;
+    }
+    .footer-col__title { font-size: 11.5px; font-weight: 600; color: var(--color-white); margin-bottom: 9px; letter-spacing: 0.1px; }
+    .footer-col__item { font-size: 9px; line-height: 13.5px; color: #aeabbd; font-weight: 300; }
+    .footer-col__item a { transition: color 0.2s ease; color: #eae7f2; text-decoration: none; }
+    .footer-col__item a:hover { color: var(--color-white); text-decoration: underline; text-underline-offset: 2px; }
+    .footer-col + .footer-block-gap { height: 26px; }
+    .footer-col--stack + .footer-col--stack { margin-top: 26px; }
+    .footer-col__list li { font-size: 9px; line-height: 14px; color: #eae7f2; font-weight: 300; }
+    .footer-col__list li a:hover { color: var(--color-white); }
+    .footer-col--addr .footer-col__item { color: #b9b6c8; }
+
+    .footer__bottom {
+      margin-top: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .footer__copy { font-size: 8px; color: #8c8999; }
+    .footer__terms { font-size: 8px; color: #b9b5c6; }
+    .footer__terms:hover { color: var(--color-white); }
+    .footer__badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 20px;
+      padding: 0 9px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: #0c0a14;
+      color: #d9d5e4;
+      font-size: 7px;
+      letter-spacing: 0.2px;
+    }
+    .footer__badge-mark { width: 9px; height: 9px; border-radius: 3px; background: #ffffff; color: #0c0a14; display: grid; place-items: center; font-size: 6px; font-weight: 800; }
+
+    /* ============ duyarlı: tablet ≤ 1024px ============ */
+    @media (max-width: 1024px) {
+      .page { max-width: 720px; }
+      .nav__menu, .nav__actions { display: none; }
+      .nav__toggle { display: grid; }
+      .site-header { position: relative; }
+      .nav-mobile { display: block; }
+    }
+
+    /* ============ duyarlı: mobil ≤ 768px ============ */
+    @media (max-width: 768px) {
+      :root {
+        --fs-h1: 27px; --lh-h1: 32px;
+        --fs-h2: 22px; --lh-h2: 29px;
+        --fs-cta-h: 21px; --lh-cta-h: 27px;
+        --fs-card-title: 15.5px; --lh-card-title: 22px;
+        --sp-page-x: 20px;
+        --sp-section-gap: 56px;
+      }
+      .hero { padding-top: 40px; }
+      .hero__lede { font-size: 10.5px; max-width: 280px; }
+      .hero__banner { font-size: 8px; height: 22px; padding: 0 10px; }
+      .hero__actions { flex-wrap: wrap; }
+      .btn--nav { height: 30px; padding: 0 18px; font-size: 11px; }
+
+      .logos { padding: 34px 20px 44px; }
+      .logos__row { gap: 20px 26px; }
+
+      .features { padding-bottom: 40px; }
+      .features__grid { grid-template-columns: 1fr; margin-top: 36px; }
+      .feature-card { min-height: 0; }
+      .feature-card--wide { grid-template-columns: 1fr; gap: 18px; }
+      .feature-card--wide__copy { padding-top: 0; }
+      .feature-card--wide__text { max-width: none; }
+
+      .cta { padding: 0 var(--sp-page-x) 36px; }
+      .cta-card { padding: 20px 20px 22px; }
+
+      .site-footer { padding: 30px var(--sp-page-x) 12px; }
+      .footer__grid { grid-template-columns: 1fr; row-gap: 4px; }
+      .footer__bottom { margin-top: 28px; flex-wrap: wrap; }
+    }
+
+    @media (max-width: 430px) {
+      :root { --fs-h1: 24px; --lh-h1: 29px; }
+      .footer__grid { grid-template-columns: 1fr; }
+      .footer__bottom { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .nav-mobile, .nav-mobile.is-open, .nav__toggle-line, .nav__link-caret, .btn { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- ================= Gezinme ================= -->
+    <header class="site-header">
+      <nav class="nav" aria-label="Ana gezinme">
+        <a class="nav__brand" href="#" aria-label="Vaultflow ana sayfa">
+          <span class="nav__brand-mark" aria-hidden="true">v</span>
+          Vaultflow
+        </a>
+
+        <div class="nav__menu">
+          <a class="nav__link" href="#">Features</a>
+          <a class="nav__link" href="#">Pricing</a>
+          <a class="nav__link" href="#">Blog</a>
+          <a class="nav__link" href="#">About us <span class="nav__link-caret" aria-hidden="true"></span></a>
+        </div>
+
+        <div class="nav__actions">
+          <a class="btn btn--nav btn--outline" href="#">Talk to an expert</a>
+          <a class="btn btn--nav btn--solid" href="#">Download the app</a>
+        </div>
+
+        <button class="nav__toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" aria-label="Menüyü aç/kapat">
+          <span class="nav__toggle-line"></span>
+        </button>
+      </nav>
+
+      <!-- mobil / tablet menü -->
+      <div class="nav-mobile" id="nav-mobile">
+        <div class="nav-mobile__inner">
+          <a class="nav-mobile__link" href="#">Features</a>
+          <a class="nav-mobile__link" href="#">Pricing</a>
+          <a class="nav-mobile__link" href="#">Blog</a>
+          <a class="nav-mobile__link" href="#">About us</a>
+          <div class="nav-mobile__actions">
+            <a class="btn btn--outline" href="#">Talk to an expert</a>
+            <a class="btn btn--solid" href="#">Download the app</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- ================= Hero ================= -->
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero__inner">
+          <p class="hero__banner">We just raised $20M in Series B. <a class="hero__banner-link" href="#">Learn more</a></p>
+
+          <h1 class="hero__title" id="hero-title">
+            Modern analytics
+            <span class="hero__title-sub">for the modern world</span>
+          </h1>
+
+          <p class="hero__lede">
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+            Suspendisse varius enim in eros elementum tristique.
+          </p>
+
+          <div class="hero__actions">
+            <a class="btn btn--solid btn--lg" href="#">Download the app</a>
+            <a class="btn btn--outline btn--lg" href="#">Talk to an expert</a>
+          </div>
+
+          <!-- 1:1 dashboard mockup -->
+          <div class="hero__art" role="img" aria-label="Vaultflow analitik gösterge paneli önizlemesi: toplam ziyaret grafiği ve KPI halkası">
+            <div class="dashboard" aria-hidden="true">
+              <div class="dash__bar">
+                <span class="dash__burger"><span></span><span></span><span></span></span>
+                <span class="dash__tab dash__tab--active">Dashboard</span>
+                <span class="dash__tab">Digital tokens</span>
+                <span class="dash__tab">Analytics</span>
+                <span class="dash__bar-spacer"></span>
+                <span class="dash__bar-divider"></span>
+              </div>
+              <div class="dash__body">
+                <div class="dash__side">
+                  <span class="dash__side-ico dash__side-ico--p1"></span>
+                  <span class="dash__side-ico dash__side-ico--p2"></span>
+                  <span class="dash__side-ico dash__side-ico--p3"></span>
+                  <span class="dash__side-ico dash__side-ico--act"></span>
+                  <span class="dash__side-space"></span>
+                  <span class="dash__side-ico"></span>
+                  <span class="dash__side-ico"></span>
+                  <span class="dash__side-ico"></span>
+                </div>
+                <div class="dash__main">
+                  <div class="dash__crumb">Dashboards&nbsp;&nbsp;·&nbsp;&nbsp;Vaultflow</div>
+                  <div class="dash__siteline">
+                    <span class="dash__site-chip">v</span>
+                    <span class="dash__site-name">VaultFlow</span>
+                    <span class="dash__site-add">+</span>
+                  </div>
+                  <div class="dash__total">
+                    Total visits
+                    <em class="dash__total-info">i</em>
+                  </div>
+                  <div class="dash__grid">
+                    <div class="dash__chart">
+                      <svg viewBox="0 0 300 108" role="presentation">
+                        <defs>
+                          <linearGradient id="purple-line" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#b678f9"/>
+                            <stop offset="100%" stop-color="#7e22ce"/>
+                          </linearGradient>
+                        </defs>
+                        <!-- grid -->
+                        <g stroke="#211d31" stroke-width="0.5">
+                          <line x1="14" y1="14"  x2="296" y2="14"/>
+                          <line x1="14" y1="40.5" x2="296" y2="40.5"/>
+                          <line x1="14" y1="67"  x2="296" y2="67"/>
+                          <line x1="14" y1="93.5" x2="296" y2="93.5"/>
+                        </g>
+                        <!-- eksen değerleri -->
+                        <g font-family="Poppins, sans-serif" font-size="5" fill="#6f6c80">
+                          <text x="0" y="16">28M</text>
+                          <text x="0" y="42.5">22M</text>
+                          <text x="0" y="69">18M</text>
+                          <text x="0" y="95.5">14M</text>
+                        </g>
+                        <!-- gri seri -->
+                        <path d="M14 84 C34 80, 50 66, 70 68 C90 70, 102 84, 122 82 C142 80, 154 60, 176 62 C198 64, 210 78, 230 76 C250 74, 264 58, 296 60"
+                              fill="none" stroke="#8b8899" stroke-opacity="0.75" stroke-width="1.4"/>
+                        <!-- mor seri -->
+                        <path d="M14 66 C34 50, 48 38, 68 44 C88 50, 96 76, 118 80 C142 84, 156 36, 184 28 C214 20, 228 56, 252 60 C274 63, 286 40, 296 38"
+                              fill="none" stroke="url(#purple-line)" stroke-width="2.2" stroke-linecap="round"/>
+                        <!-- ipucu dikey çizgi -->
+                        <line x1="66" y1="10" x2="66" y2="94" stroke="#a855f7" stroke-width="0.8" stroke-dasharray="2.5 2.5"/>
+                        <!-- ipucu noktası -->
+                        <circle cx="66" cy="44" r="3.4" fill="#10091d" stroke="#ffffff" stroke-width="1.6"/>
+                        <!-- aylar -->
+                        <g font-family="Poppins, sans-serif" font-size="4.2" fill="#6f6c80">
+                          <text x="14"  y="104">Jan</text><text x="35"  y="104">Feb</text>
+                          <text x="56"  y="104">Mar</text><text x="77"  y="104">Apr</text>
+                          <text x="98"  y="104">May</text><text x="119" y="104">Jun</text>
+                          <text x="140" y="104">Jul</text><text x="161" y="104">Aug</text>
+                          <text x="182" y="104">Sep</text><text x="203" y="104">Oct</text>
+                          <text x="224" y="104">Nov</text><text x="245" y="104">Dec</text>
+                        </g>
+                      </svg>
+                      <div class="dash__tooltip">
+                        <strong class="dash__tooltip-strong">20 342 952</strong>
+                        <span class="dash__tooltip-sub">May 2023</span>
+                      </div>
+                    </div>
+
+                    <div class="dash__right">
+                      <div class="dash__kpirow">
+                        <div class="dash__ring">
+                          <svg viewBox="0 0 34 34" role="presentation">
+                            <circle cx="17" cy="17" r="14" fill="none" stroke="#2a1c44" stroke-width="4"/>
+                            <circle cx="17" cy="17" r="14" fill="none" stroke="#a855f7" stroke-width="4"
+                                    stroke-dasharray="70 88" stroke-linecap="round" transform="rotate(-90 17 17)"/>
+                          </svg>
+                          <span class="dash__ring-label">4 612</span>
+                        </div>
+                        <div class="dash__picker">
+                          May 2023
+                          <svg width="7" height="7" viewBox="0 0 8 8" fill="#cfcae0"><path d="M1 1h6M2.5 3.5h3" stroke="#cfcae0" stroke-width="0.8"/><rect x="1" y="2.4" width="6" height="5" rx="1" fill="none" stroke="#cfcae0" stroke-width="0.7"/></svg>
+                        </div>
+                      </div>
+                      <div class="dash__legend">
+                        <div class="dash__legend-row">
+                          <span class="dash__legend-name">Aime</span>
+                          <span class="dash__bar-track"><span class="dash__bar-fill" style="width:66%"></span></span>
+                        </div>
+                        <div class="dash__legend-row">
+                          <span class="dash__legend-name">Clara</span>
+                          <span class="dash__bar-track"><span class="dash__bar-fill" style="width:44%"></span></span>
+                        </div>
+                        <div class="dash__legend-row">
+                          <span class="dash__legend-name">Peter</span>
+                          <span class="dash__bar-track"><span class="dash__bar-fill" style="width:36%"></span></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Güven logoları ================= -->
+      <section class="logos" aria-label="Referans kuruluşlar">
+        <p class="logos__title">Trusted by teams at over 1,000 of the world's leading organizations</p>
+        <div class="logos__row">
+          <span class="logos__item logos__item--del" role="img" aria-label="Dell">D∃LL</span>
+          <span class="logos__item logos__item--zen" role="img" aria-label="Zendesk">zendesk</span>
+          <span class="logos__item logos__item--rak" role="img" aria-label="Rakuten">Rakuten</span>
+          <span class="logos__item logos__item--pf" role="img" aria-label="Pacific Funds">
+            <svg width="16" height="10" viewBox="0 0 16 10" style="display:inline-block;vertical-align:-1px;margin-right:4px" aria-hidden="true">
+              <circle cx="6" cy="5" r="3.4" fill="none" stroke="currentColor" stroke-width="1.1"/>
+              <circle cx="10.4" cy="5" r="3.4" fill="none" stroke="currentColor" stroke-width="1.1"/>
+            </svg>PACIFIC FUNDS
+          </span>
+          <span class="logos__item logos__item--ncr" role="img" aria-label="NCR">
+            <svg width="13" height="13" viewBox="0 0 13 13" style="display:inline-block;vertical-align:-2px;margin-right:4px" aria-hidden="true">
+              <circle cx="6.5" cy="6.5" r="5.6" fill="none" stroke="currentColor" stroke-width="1.2"/>
+              <circle cx="6.5" cy="6.5" r="2.4" fill="currentColor"/>
+            </svg>NCR
+          </span>
+          <span class="logos__item logos__item--lat" role="img" aria-label="Lattice">
+            <svg width="15" height="12" viewBox="0 0 15 12" style="display:inline-block;vertical-align:-1px;margin-right:4px" aria-hidden="true">
+              <path d="M1 10 L5 2 L7.4 6.2 L9 3.4 L11.2 7.2 L13.4 1.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>Lattice
+          </span>
+          <span class="logos__item logos__item--ted" role="img" aria-label="TED">TED</span>
+        </div>
+      </section>
+
+      <!-- ================= Features ================= -->
+      <section class="features" aria-labelledby="features-title">
+        <div class="features__head">
+          <h2 class="features__title" id="features-title">Features that work for your future.</h2>
+          <p class="features__lede">Check out our amazing features and experience the power of Vaultflow for yourself.</p>
+        </div>
+
+        <div class="features__grid">
+          <article class="feature-card">
+            <span class="feature-card--icon" aria-hidden="true">
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                <rect x="1" y="8" width="2.6" height="5" rx="0.8" fill="currentColor"/>
+                <rect x="5.7" y="4.6" width="2.6" height="8.4" rx="0.8" fill="currentColor"/>
+                <rect x="10.4" y="1" width="2.6" height="12" rx="0.8" fill="currentColor"/>
+              </svg>
+            </span>
+            <h3 class="feature-card__title">Analytics Dashboard</h3>
+            <p class="feature-card__text">
+              Our Analytics Dashboard provides a clear and intuitive interface for you to easily track and analyze your data. From customizable graphs and charts to real-time data updates, our dashboard offers everything you need to gain valuable insights and make data-driven decisions.
+            </p>
+            <a class="feature-card__link" href="#">View dashboard</a>
+          </article>
+
+          <article class="feature-card">
+            <span class="feature-card--icon" aria-hidden="true">
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="5.6" stroke="currentColor" stroke-width="1.6"/>
+                <circle cx="7" cy="7" r="2" fill="currentColor"/>
+              </svg>
+            </span>
+            <h3 class="feature-card__title">Digital Credit Tokens</h3>
+            <p class="feature-card__text">
+              Reward your customers and incentivize engagement with our innovative digital credit tokens. Our tokens can be customized to match your branding, and are a flexible and scalable way to drive customer loyalty and encourage repeat business.
+            </p>
+            <a class="feature-card__link" href="#">View tokens</a>
+          </article>
+
+          <article class="feature-card feature-card--wide">
+            <div class="feature-card--wide__copy">
+              <span class="feature-card--icon feature-card--icon-pink" aria-hidden="true">
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                  <path d="M5 4 L2.4 7 L5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M9 4 L11.6 7 L9 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <h3 class="feature-card__title">Code collaboration</h3>
+              <p class="feature-card__text feature-card--wide__text">
+                Our advanced code synchronization technology ensures that your data is always up-to-date and accurate, no matter where it's coming from. Whether you're integrating data from multiple sources or working with a team of developers, our synchronization technology makes it easy to collaborate and ensure that your data is consistent and reliable.
+              </p>
+              <a class="feature-card__link" href="#">View code collaboration</a>
+            </div>
+
+            <div class="code-mock" role="img" aria-label="DigitalToken.ts adlı JavaScript dosyasının kod düzenleyici görünümü">
+              <div class="code-mock__bar">
+                <span class="code-mock__tab">DigitalToken.ts</span>
+              </div>
+              <div class="code-mock__body" aria-hidden="true">
+                  <div class="code-mock__row"><span class="code-mock__num">1</span><span><span class="code-mock__cm">// addNumbersToToken</span></span></div>
+                  <div class="code-mock__row"><span class="code-mock__num">2</span><span><span class="code-mock__kw">function</span> addNumbersToToken<span class="code-mock__kw">(</span>num1, num2<span class="code-mock__kw">)</span> <span class="code-mock__kw">{</span></span></div>
+                  <div class="code-mock__row"><span class="code-mock__num">3</span><span>&nbsp;&nbsp;<span class="code-mock__kw">let</span> sum <span class="code-mock__kw">=</span> num1 <span class="code-mock__kw">+</span> num2;</span></div>
+                  <div class="code-mock__row"><span class="code-mock__num">4</span><span>&nbsp;&nbsp;<span class="code-mock__kw">let</span> token <span class="code-mock__kw">= {</span></span></div>
+                  <div class="code-mock__row"><span class="code-mock__num">5</span><span>&nbsp;&nbsp;&nbsp;&nbsp;value<span class="code-mock__kw">:</span> sum,</span></div>
+                  <div class="code-mock__row"><span class="code-mock__num">6</span><span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-mock__kw">return</span> token;</span></div>
+                  <div class="code-mock__row"><span class="code-mock__num">7</span><span>&nbsp;&nbsp;<span class="code-mock__kw">};</span></span></div>
+                  <div class="code-mock__row"><span class="code-mock__num">8</span><span><span class="code-mock__kw">}</span></span></div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ================= CTA ================= -->
+      <section class="cta" aria-labelledby="cta-title">
+        <article class="cta-card">
+          <h2 class="cta-card__title" id="cta-title">Our powerful analytics provides invaluable insights.</h2>
+          <p class="cta-card__text">
+            Unlock the power of data with our cutting-edge analytics product. Get instant insights with our user-friendly Analytics Dashboard, and take advantage of our innovative digital credit tokens to reward your customers and incentivize engagement.
+          </p>
+          <div class="cta-card__btn">
+            <a class="btn btn--outline btn--lg" href="#">Download the app</a>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <!-- ================= Footer ================= -->
+    <footer class="site-footer">
+      <div class="footer__grid">
+        <div class="footer-col--stack">
+          <div class="footer-col">
+            <h3 class="footer-col__title">Contact</h3>
+            <p class="footer-col__item">Work inquiries: <a href="mailto:work@vaultflow.com">work@vaultflow.com</a></p>
+            <p class="footer-col__item">PR and speaking: <a href="mailto:press@vaultflow.com">press@vaultflow.com</a></p>
+            <p class="footer-col__item">New business: <a href="mailto:newbusiness@vaultflow.com">newbusiness@vaultflow.com</a></p>
+          </div>
+          <div class="footer-col">
+            <h3 class="footer-col__title">Careers</h3>
+            <p class="footer-col__item"><a href="mailto:careers@vaultflow.com">Careers@vaultflow.com</a></p>
+          </div>
+        </div>
+        <div class="footer-col--stack">
+          <div class="footer-col footer-col--addr">
+            <h3 class="footer-col__title">Address</h3>
+            <p class="footer-col__item" style="color:#eae7f2">308 11th Street, Floor 2<br />San Francisco, CA 94103</p>
+          </div>
+          <div class="footer-col">
+            <h3 class="footer-col__title">Social</h3>
+            <ul class="footer-col__list">
+              <li><a href="#">Twitter</a></li>
+              <li><a href="#">Instagram</a></li>
+              <li><a href="#">Tik Tok</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer__bottom">
+        <p class="footer__copy">© 2023 VaultFlow. All Rights Reserved.</p>
+        <a class="footer__terms" href="#">Terms of Service</a>
+        <a class="footer__badge" href="#" aria-label="Powered by Webflow">
+          <span class="footer__badge-mark" aria-hidden="true">W</span>
+          Powered by Webflow
+        </a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      var btn = document.querySelector(".nav__toggle");
+      var menu = document.getElementById("nav-mobile");
+      if (!btn || !menu) return;
+      function toggle(force) {
+        var open = force !== undefined ? force : !menu.classList.contains("is-open");
+        menu.classList.toggle("is-open", open);
+        btn.setAttribute("aria-expanded", String(open));
+        btn.setAttribute("aria-label", open ? "Menüyü kapat" : "Menüyü aç");
+      }
+      btn.addEventListener("click", function () { toggle(); });
+      menu.addEventListener("click", function (e) { if (e.target.closest("a")) toggle(false); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape") toggle(false); });
+      window.matchMedia("(min-width: 1025px)").addEventListener("change", function (e) {
+        if (e.matches) toggle(false);
+      });
+    })();
+  </script>
+</body>
+</html>

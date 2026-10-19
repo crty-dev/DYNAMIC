@@ -1,0 +1,1428 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0121">
+  <meta name="description" content="Vaultflow — Modern analytics for the modern world.">
+  <title>Vaultflow — Modern Analytics</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --color-background: #0b0121;
+      --color-background-dark: #0b081c;
+      --color-purple: #370c94;
+      --color-text: #ececec;
+      --color-text-muted: rgba(236, 236, 236, 0.65);
+      --color-border: rgba(255, 255, 255, 0.3);
+      --color-white: #f2f4f8;
+
+      --font-family: "Montserrat", sans-serif;
+      --font-size-xs: 8px;
+      --font-size-sm: 9px;
+      --font-size-base: 10px;
+      --font-size-lg: 11px;
+      --font-size-xl: 24px;
+      --font-size-hero: 40px;
+
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 30px;
+      --space-7: 40px;
+      --space-8: 60px;
+      --space-9: 80px;
+
+      --radius-sm: 10px;
+      --radius-md: 12px;
+      --radius-pill: 30px;
+
+      --shadow-card:
+        0 -1px 5px rgba(233, 223, 255, 0.3),
+        0 -1px 20px rgba(187, 155, 255, 0.15);
+      --shadow-icon: 0 0 18.227px rgba(89, 29, 221, 0.75);
+      --content-width: 1120px;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 64px;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--color-background);
+      color: var(--color-text);
+      font-family: var(--font-family);
+      font-size: var(--font-size-base);
+      font-weight: 400;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    body,
+    button,
+    a {
+      font-family: var(--font-family);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+    }
+
+    button,
+    a {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .page {
+      width: 100%;
+      min-height: 100vh;
+      overflow: hidden;
+      background: var(--color-background);
+    }
+
+    .container {
+      width: min(var(--content-width), calc(100% - 64px));
+      margin-inline: auto;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 28px;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      border: 0.5px solid var(--color-text);
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--color-text);
+      font-size: var(--font-size-xs);
+      font-weight: 400;
+      line-height: 1.5;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background-color 180ms ease, color 180ms ease;
+    }
+
+    .button--primary {
+      background: var(--color-text);
+      color: var(--color-background-dark);
+    }
+
+    .button--outline {
+      background: transparent;
+      color: var(--color-text);
+    }
+
+    .button:hover {
+      background: #fff;
+      color: var(--color-background-dark);
+    }
+
+    .button:focus-visible,
+    .nav__link:focus-visible,
+    .footer__link:focus-visible,
+    .menu-toggle:focus-visible {
+      outline: 2px solid #c6a5ff;
+      outline-offset: 4px;
+    }
+
+    .header {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      border-bottom: 0.5px solid rgba(0, 50, 53, 0.2);
+    }
+
+    .nav {
+      display: flex;
+      min-height: 56px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 5px;
+      color: var(--color-text);
+      font-size: var(--font-size-lg);
+      font-weight: 700;
+      letter-spacing: -0.33px;
+      white-space: nowrap;
+    }
+
+    .brand__icon {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+    }
+
+    .nav__content {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 24px;
+    }
+
+    .nav__links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .nav__link {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      color: var(--color-text);
+      font-size: var(--font-size-xs);
+      line-height: 1.5;
+      white-space: nowrap;
+      transition: opacity 180ms ease;
+    }
+
+    .nav__link:hover {
+      opacity: 0.7;
+    }
+
+    .nav__chevron {
+      width: 12px;
+      height: 12px;
+      object-fit: contain;
+    }
+
+    .nav__actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav__actions .button {
+      min-height: 26px;
+      padding: 4px 10px;
+    }
+
+    .menu-toggle {
+      display: none;
+      width: 36px;
+      height: 36px;
+      align-items: center;
+      justify-content: center;
+      padding: 7px;
+      border: 1px solid rgba(236, 236, 236, 0.3);
+      border-radius: 8px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .menu-toggle__icon,
+    .menu-toggle__icon::before,
+    .menu-toggle__icon::after {
+      position: relative;
+      display: block;
+      width: 18px;
+      height: 1.5px;
+      background: var(--color-text);
+      transition: transform 220ms ease, background-color 220ms ease;
+    }
+
+    .menu-toggle__icon::before,
+    .menu-toggle__icon::after {
+      position: absolute;
+      left: 0;
+      content: "";
+    }
+
+    .menu-toggle__icon::before {
+      transform: translateY(-6px);
+    }
+
+    .menu-toggle__icon::after {
+      transform: translateY(6px);
+    }
+
+    .menu-toggle[aria-expanded="true"] .menu-toggle__icon {
+      background: transparent;
+    }
+
+    .menu-toggle[aria-expanded="true"] .menu-toggle__icon::before {
+      transform: rotate(45deg);
+    }
+
+    .menu-toggle[aria-expanded="true"] .menu-toggle__icon::after {
+      transform: rotate(-45deg);
+    }
+
+    .hero {
+      position: relative;
+      isolation: isolate;
+      display: flex;
+      min-height: 640px;
+      flex-direction: column;
+      align-items: center;
+      padding: 85px 24px 40px;
+      background: linear-gradient(
+        180deg,
+        var(--color-purple) 0%,
+        var(--color-background) 61.124%
+      );
+    }
+
+    .hero__glow {
+      position: absolute;
+      z-index: -1;
+      top: 0;
+      left: 50%;
+      width: min(100%, 900px);
+      height: 370px;
+      transform: translateX(-50%);
+      background:
+        radial-gradient(ellipse at 50% 15%, rgba(100, 43, 230, 0.4), transparent 62%),
+        url("assets/1464c.png") center top / contain no-repeat;
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .hero__content {
+      display: flex;
+      width: min(100%, 480px);
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+      text-align: center;
+    }
+
+    .hero__intro {
+      display: flex;
+      width: 100%;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .announcement {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4.953px 9.905px;
+      border: 0.619px solid var(--color-border);
+      border-radius: 30.954px;
+      color: var(--color-white);
+      font-size: 8.667px;
+      line-height: 1.5;
+      white-space: nowrap;
+    }
+
+    .announcement__link {
+      margin-left: 3px;
+      color: var(--color-text);
+      font-weight: 500;
+    }
+
+    .announcement__link:hover {
+      text-decoration: underline;
+    }
+
+    .hero__title {
+      margin: 0;
+      background: linear-gradient(
+        173.477deg,
+        rgb(236, 236, 236) 20.345%,
+        rgba(236, 236, 236, 0) 128.73%
+      );
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      font-size: var(--font-size-hero);
+      font-weight: 500;
+      letter-spacing: -1.2px;
+      line-height: 1;
+    }
+
+    .hero__title span {
+      display: block;
+    }
+
+    .hero__description {
+      width: min(100%, 290px);
+      margin: 0;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+      line-height: 1.6;
+    }
+
+    .hero__actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding-top: 8px;
+    }
+
+    .hero__actions .button {
+      padding: 6px 12px;
+      font-size: var(--font-size-xs);
+    }
+
+    .hero__preview {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 480 / 236;
+      overflow: hidden;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-card);
+    }
+
+    .hero__preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+    }
+
+    .hero__preview::after {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow: inset 0 0.25px 0 rgba(255, 255, 255, 0.5);
+      content: "";
+      pointer-events: none;
+    }
+
+    .trusted {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 30px 0;
+    }
+
+    .trusted__heading {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: var(--font-size-base);
+      font-weight: 400;
+      line-height: 1.3;
+      text-align: center;
+    }
+
+    .trusted__heading strong {
+      font-weight: 500;
+    }
+
+    .trusted__logos {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      justify-content: space-between;
+      gap: 28px;
+    }
+
+    .trusted__logo {
+      display: flex;
+      flex: 0 1 auto;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .trusted__logo img {
+      width: auto;
+      max-width: 100%;
+      max-height: 20px;
+      object-fit: contain;
+    }
+
+    .features {
+      position: relative;
+      isolation: isolate;
+      padding: 40px 0;
+      overflow: hidden;
+      background: var(--color-background);
+    }
+
+    .features__glow {
+      position: absolute;
+      z-index: -1;
+      top: -50px;
+      left: 50%;
+      width: 440px;
+      height: 300px;
+      transform: translateX(-50%);
+      background: radial-gradient(
+        ellipse,
+        rgba(80, 24, 188, 0.2),
+        transparent 68%
+      );
+      pointer-events: none;
+    }
+
+    .section-heading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin: 0 auto 40px;
+      text-align: center;
+    }
+
+    .section-heading__title {
+      width: min(100%, 320px);
+      margin: 0;
+      color: var(--color-text);
+      font-size: var(--font-size-xl);
+      font-weight: 500;
+      letter-spacing: -0.16px;
+      line-height: 1.2;
+    }
+
+    .section-heading__description {
+      width: min(100%, 310px);
+      margin: 0;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+      line-height: 1.6;
+    }
+
+    .features__grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      position: relative;
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 30px;
+      overflow: hidden;
+      border: 1px solid rgba(236, 236, 236, 0.07);
+      border-radius: var(--radius-sm);
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.05),
+        rgba(255, 255, 255, 0)
+      );
+      box-shadow: var(--shadow-card);
+    }
+
+    .feature-card__icon {
+      width: 25px;
+      height: 25px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 8px rgba(89, 29, 221, 0.5));
+    }
+
+    .feature-card__content {
+      display: flex;
+      width: 100%;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 5px;
+    }
+
+    .feature-card__title {
+      margin: 0;
+      color: var(--color-text);
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    .feature-card__description {
+      margin: 0;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+      line-height: 1.6;
+    }
+
+    .feature-card__actions {
+      display: flex;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .feature-card__actions .button {
+      min-height: 26px;
+      padding: 4px 10px;
+    }
+
+    .feature-card--wide {
+      display: grid;
+      grid-column: 1 / -1;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+      align-items: center;
+      gap: 32px;
+      padding: 30px;
+    }
+
+    .feature-card__image {
+      width: 100%;
+      overflow: hidden;
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-card);
+    }
+
+    .feature-card__image img {
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+    }
+
+    .feature-card--wide .feature-card__content {
+      max-width: 340px;
+    }
+
+    .feature-card--wide .feature-card__title {
+      font-size: 20px;
+    }
+
+    .feature-card--wide .feature-card__description {
+      font-size: var(--font-size-sm);
+    }
+
+    .feature-card--wide .feature-card__actions {
+      margin-top: 12px;
+    }
+
+    .feature-card--compact {
+      min-height: 150px;
+    }
+
+    .feature-card--compact .feature-card__title {
+      font-size: 14px;
+    }
+
+    .footer {
+      padding: 40px 0 28px;
+      background: var(--color-background);
+    }
+
+    .footer__container {
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    .footer__content {
+      display: grid;
+      grid-template-columns: 1.2fr 1.2fr 1fr 0.8fr;
+      gap: 32px;
+    }
+
+    .footer__column {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .footer__heading {
+      margin: 0;
+      color: var(--color-text);
+      font-size: var(--font-size-base);
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    .footer__links {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .footer__link {
+      color: var(--color-text-muted);
+      font-size: var(--font-size-xs);
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+      transition: color 180ms ease;
+    }
+
+    .footer__link:hover {
+      color: var(--color-text);
+    }
+
+    .footer__bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(236, 236, 236, 0.12);
+    }
+
+    .footer__legal {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .footer__brand {
+      font-size: var(--font-size-lg);
+    }
+
+    @media (min-width: 1200px) {
+      .hero {
+        min-height: 680px;
+      }
+
+      .hero__content {
+        width: 480px;
+      }
+
+      .hero__preview {
+        width: 480px;
+        flex: 0 0 auto;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .container {
+        width: min(100% - 48px, 760px);
+      }
+
+      .header {
+        min-height: 56px;
+      }
+
+      .nav {
+        min-height: 56px;
+        flex-wrap: wrap;
+        gap: 0;
+      }
+
+      .menu-toggle {
+        display: inline-flex;
+        flex: 0 0 auto;
+      }
+
+      .nav__content {
+        display: flex;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        left: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        max-height: 0;
+        padding: 0 24px;
+        overflow: hidden;
+        visibility: hidden;
+        background: rgba(5, 0, 19, 0.98);
+        border-bottom: 1px solid transparent;
+        opacity: 0;
+        transition:
+          max-height 300ms ease,
+          padding 300ms ease,
+          opacity 220ms ease,
+          visibility 300ms ease,
+          border-color 220ms ease;
+      }
+
+      .nav__content.is-open {
+        max-height: 440px;
+        padding-top: 20px;
+        padding-bottom: 24px;
+        visibility: visible;
+        border-bottom-color: rgba(236, 236, 236, 0.12);
+        opacity: 1;
+      }
+
+      .nav__links {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+      }
+
+      .nav__link {
+        min-height: 44px;
+        padding: 10px 0;
+        font-size: 12px;
+      }
+
+      .nav__chevron {
+        margin-left: 4px;
+      }
+
+      .nav__actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding-top: 12px;
+      }
+
+      .nav__actions .button {
+        min-height: 36px;
+        font-size: 10px;
+      }
+
+      .hero {
+        min-height: auto;
+        padding-top: 72px;
+        padding-bottom: 40px;
+      }
+
+      .hero__content {
+        gap: 32px;
+      }
+
+      .trusted {
+        padding-inline: 0;
+      }
+
+      .trusted__logos {
+        flex-wrap: wrap;
+        justify-content: center;
+        column-gap: 36px;
+        row-gap: 24px;
+      }
+
+      .features__grid {
+        gap: 14px;
+      }
+
+      .feature-card {
+        padding: 24px;
+      }
+
+      .feature-card--wide {
+        gap: 24px;
+      }
+
+      .footer__content {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 32px 24px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      :root {
+        --font-size-hero: clamp(30px, 7vw, 40px);
+        --font-size-xl: 22px;
+      }
+
+      .container {
+        width: calc(100% - 40px);
+      }
+
+      .hero {
+        padding: 64px 20px 32px;
+      }
+
+      .hero__content {
+        gap: 30px;
+      }
+
+      .hero__intro {
+        gap: 12px;
+      }
+
+      .hero__title {
+        letter-spacing: -0.9px;
+      }
+
+      .hero__description {
+        max-width: 290px;
+      }
+
+      .hero__preview {
+        width: 100%;
+        aspect-ratio: 480 / 236;
+      }
+
+      .trusted {
+        gap: 22px;
+        padding: 28px 20px;
+      }
+
+      .trusted__heading {
+        max-width: 320px;
+        font-size: 10px;
+      }
+
+      .trusted__logos {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        justify-items: center;
+        gap: 24px 18px;
+      }
+
+      .trusted__logo img {
+        max-width: 90px;
+        max-height: 20px;
+      }
+
+      .features {
+        padding: 32px 0;
+      }
+
+      .section-heading {
+        margin-bottom: 28px;
+      }
+
+      .section-heading__title {
+        max-width: 280px;
+      }
+
+      .section-heading__description {
+        max-width: 300px;
+      }
+
+      .features__grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .feature-card {
+        padding: 24px;
+      }
+
+      .feature-card--wide {
+        grid-column: auto;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+      }
+
+      .feature-card--wide .feature-card__content {
+        max-width: none;
+      }
+
+      .feature-card--wide .feature-card__image {
+        grid-row: 1;
+      }
+
+      .feature-card--wide .feature-card__title {
+        font-size: 18px;
+      }
+
+      .feature-card--compact {
+        min-height: auto;
+      }
+
+      .footer {
+        padding-top: 32px;
+      }
+
+      .footer__container {
+        gap: 32px;
+      }
+
+      .footer__content {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 28px 18px;
+      }
+
+      .footer__bottom {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .footer__legal {
+        gap: 14px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .container {
+        width: calc(100% - 32px);
+      }
+
+      .hero {
+        padding-inline: 16px;
+      }
+
+      .hero__actions {
+        gap: 8px;
+      }
+
+      .hero__actions .button {
+        padding-inline: 10px;
+      }
+
+      .announcement {
+        font-size: 8px;
+      }
+
+      .trusted__logos {
+        column-gap: 12px;
+      }
+
+      .feature-card {
+        padding: 20px;
+      }
+
+      .footer__content {
+        gap: 24px 14px;
+      }
+
+      .footer__link {
+        font-size: 8px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <header class="header">
+      <nav class="nav container" aria-label="Main navigation">
+        <a class="brand" href="#" aria-label="Vaultflow home">
+          <img
+            class="brand__icon"
+            src="assets/060f4.png"
+            alt=""
+            width="18"
+            height="18"
+          >
+          <span>Vaultflow</span>
+        </a>
+
+        <button
+          class="menu-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-controls="primary-navigation"
+          aria-expanded="false"
+        >
+          <span class="menu-toggle__icon" aria-hidden="true"></span>
+        </button>
+
+        <div class="nav__content" id="primary-navigation">
+          <div class="nav__links">
+            <a class="nav__link" href="#features">Features</a>
+            <a class="nav__link" href="#pricing">Pricing</a>
+            <a class="nav__link" href="#blog">Blog</a>
+            <a class="nav__link" href="#about">
+              About us
+              <img
+                class="nav__chevron"
+                src="assets/39ef4.svg"
+                alt=""
+                width="12"
+                height="12"
+              >
+            </a>
+          </div>
+
+          <div class="nav__actions">
+            <a class="button button--outline" href="#contact">Talk to an expert</a>
+            <a class="button button--primary" href="#download">Download the app</a>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero__glow" aria-hidden="true"></div>
+
+        <div class="hero__content">
+          <div class="hero__intro">
+            <div class="announcement">
+              <span>We just raised $20M in Series B.</span>
+              <a class="announcement__link" href="#about">Learn more</a>
+            </div>
+
+            <h1 class="hero__title" id="hero-title">
+              <span>Modern analytics</span>
+              <span>for the modern world</span>
+            </h1>
+
+            <p class="hero__description">
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+              Suspendisse varius enim in eros elementum tristique.
+            </p>
+
+            <div class="hero__actions">
+              <a class="button button--primary" id="download" href="#download">
+                Download the app
+              </a>
+              <a class="button button--outline" href="#contact">
+                Talk to an expert
+              </a>
+            </div>
+          </div>
+
+          <div class="hero__preview">
+            <img
+              src="assets/2fd7c.png"
+              alt="Vaultflow analytics application interface"
+              width="480"
+              height="236"
+              fetchpriority="high"
+            >
+          </div>
+        </div>
+      </section>
+
+      <section class="trusted container" aria-label="Trusted organizations">
+        <p class="trusted__heading">
+          Trusted by teams at over <strong>1,000</strong> of the world’s leading organizations
+        </p>
+
+        <div class="trusted__logos">
+          <div class="trusted__logo">
+            <img
+              src="assets/a54de.svg"
+              alt="Dell"
+              width="31"
+              height="10"
+              loading="lazy"
+            >
+          </div>
+          <div class="trusted__logo">
+            <img
+              src="assets/5b105.svg"
+              alt="Zendesk"
+              width="44"
+              height="9"
+              loading="lazy"
+            >
+          </div>
+          <div class="trusted__logo">
+            <img
+              src="assets/32717.svg"
+              alt="Rakuten"
+              width="34"
+              height="11"
+              loading="lazy"
+            >
+          </div>
+          <div class="trusted__logo">
+            <img
+              src="assets/4ca47.svg"
+              alt="Pacific Funds"
+              width="72"
+              height="7"
+              loading="lazy"
+            >
+          </div>
+          <div class="trusted__logo">
+            <img
+              src="assets/b7a7c.svg"
+              alt="NCR"
+              width="40"
+              height="13"
+              loading="lazy"
+            >
+          </div>
+          <div class="trusted__logo">
+            <img
+              src="assets/d9566.svg"
+              alt="Nest"
+              width="25"
+              height="12"
+              loading="lazy"
+            >
+          </div>
+          <div class="trusted__logo">
+            <img
+              src="assets/dadf5.svg"
+              alt="TED"
+              width="28"
+              height="10"
+              loading="lazy"
+            >
+          </div>
+        </div>
+      </section>
+
+      <section class="features" id="features" aria-labelledby="features-title">
+        <div class="features__glow" aria-hidden="true"></div>
+
+        <div class="container">
+          <header class="section-heading">
+            <h2 class="section-heading__title" id="features-title">
+              Features that work for your future.
+            </h2>
+            <p class="section-heading__description">
+              Check out our amazing features and experience the power of Vaultflow for yourself.
+            </p>
+          </header>
+
+          <div class="features__grid">
+            <article class="feature-card">
+              <img
+                class="feature-card__icon"
+                src="assets/16697.png"
+                alt=""
+                width="25"
+                height="25"
+                loading="lazy"
+              >
+
+              <div class="feature-card__content">
+                <h3 class="feature-card__title">Analytics dashboard</h3>
+                <p class="feature-card__description">
+                  Get a clear view of your data with powerful analytics and insights in one place.
+                </p>
+              </div>
+
+              <div class="feature-card__actions">
+                <a class="button button--outline" href="#contact">View features</a>
+              </div>
+            </article>
+
+            <article class="feature-card">
+              <img
+                class="feature-card__icon"
+                src="assets/12175.png"
+                alt=""
+                width="25"
+                height="25"
+                loading="lazy"
+              >
+
+              <div class="feature-card__content">
+                <h3 class="feature-card__title">Data-driven decisions</h3>
+                <p class="feature-card__description">
+                  Turn complex information into meaningful insights for your team.
+                </p>
+              </div>
+
+              <div class="feature-card__actions">
+                <a class="button button--outline" href="#contact">Learn more</a>
+              </div>
+            </article>
+
+            <article class="feature-card feature-card--wide">
+              <div class="feature-card__content">
+                <h3 class="feature-card__title">Designed for your workflow</h3>
+                <p class="feature-card__description">
+                  Experience the power of Vaultflow with an interface built to bring your data together.
+                </p>
+                <div class="feature-card__actions">
+                  <a class="button button--outline" href="#contact">Talk to an expert</a>
+                </div>
+              </div>
+
+              <div class="feature-card__image">
+                <img
+                  src="assets/9321f.png"
+                  alt="Vaultflow product interface preview"
+                  width="480"
+                  height="280"
+                  loading="lazy"
+                >
+              </div>
+            </article>
+
+            <article class="feature-card feature-card--compact">
+              <div class="feature-card__content">
+                <h3 class="feature-card__title">Built for your future</h3>
+                <p class="feature-card__description">
+                  Make informed decisions with your data in view.
+                </p>
+              </div>
+            </article>
+
+            <article class="feature-card feature-card--compact">
+              <div class="feature-card__content">
+                <h3 class="feature-card__title">Everything in one place</h3>
+                <p class="feature-card__description">
+                  Keep your workflow connected and your insights accessible.
+                </p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="features" id="about" aria-labelledby="about-title">
+        <div class="container">
+          <header class="section-heading">
+            <h2 class="section-heading__title" id="about-title">
+              Experience the power of Vaultflow.
+            </h2>
+            <p class="section-heading__description">
+              Modern analytics for the modern world.
+            </p>
+          </header>
+
+          <div class="features__grid">
+            <article class="feature-card feature-card--wide">
+              <div class="feature-card__content">
+                <h3 class="feature-card__title">Your data. Your insights.</h3>
+                <p class="feature-card__description">
+                  Bring your information together and discover a clearer way to understand your business.
+                </p>
+                <div class="feature-card__actions">
+                  <a class="button button--primary" href="#download">Download the app</a>
+                </div>
+              </div>
+
+              <div class="feature-card__image">
+                <img
+                  src="assets/2fd7c.png"
+                  alt="Vaultflow analytics dashboard"
+                  width="480"
+                  height="236"
+                  loading="lazy"
+                >
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer" id="contact">
+      <div class="footer__container container">
+        <div class="footer__content">
+          <div class="footer__column">
+            <h2 class="footer__heading">Contact</h2>
+            <div class="footer__links">
+              <a class="footer__link" href="mailto:work@vaultflow.com">
+                Work inquires: work@vaultflow.com
+              </a>
+              <a class="footer__link" href="mailto:press@vaultflow.com">
+                PR and speaking: press@vaultflow.com
+              </a>
+              <a class="footer__link" href="mailto:newbusiness@vaultflow.com">
+                New business: newbusiness@vaultflow.com
+              </a>
+            </div>
+          </div>
+
+          <div class="footer__column">
+            <h2 class="footer__heading">Careers</h2>
+            <div class="footer__links">
+              <a class="footer__link" href="mailto:careers@vaultflow.com">
+                Careers@vaultflow.com
+              </a>
+            </div>
+          </div>
+
+          <div class="footer__column">
+            <h2 class="footer__heading">Address</h2>
+            <div class="footer__links">
+              <span class="footer__link">San Francisco, CA 94103</span>
+            </div>
+          </div>
+
+          <div class="footer__column">
+            <h2 class="footer__heading">Social</h2>
+            <div class="footer__links">
+              <a class="footer__link" href="https://twitter.com/">Twitter</a>
+              <a class="footer__link" href="https://instagram.com/">Instagram</a>
+              <a class="footer__link" href="https://tiktok.com/">Tik Tok</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer__bottom">
+          <a class="brand footer__brand" href="#" aria-label="Vaultflow home">
+            <img
+              class="brand__icon"
+              src="assets/060f4.png"
+              alt=""
+              width="18"
+              height="18"
+              loading="lazy"
+            >
+            <span>Vaultflow</span>
+          </a>
+
+          <div class="footer__legal">
+            <a class="footer__link" href="#terms">Terms of Service</a>
+            <a class="footer__link" href="#privacy">Privacy Policy</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      const toggle = document.querySelector(".menu-toggle");
+      const navigation = document.querySelector("#primary-navigation");
+      const mobileQuery = window.matchMedia("(max-width: 1024px)");
+
+      if (!toggle || !navigation) return;
+
+      const setMenuState = (isOpen) => {
+        toggle.setAttribute("aria-expanded", String(isOpen));
+        toggle.setAttribute(
+          "aria-label",
+          isOpen ? "Close navigation" : "Toggle navigation"
+        );
+        navigation.classList.toggle("is-open", isOpen);
+      };
+
+      toggle.addEventListener("click", () => {
+        const isOpen = toggle.getAttribute("aria-expanded") === "true";
+        setMenuState(!isOpen);
+      });
+
+      navigation.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () => {
+          if (mobileQuery.matches) setMenuState(false);
+        });
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          setMenuState(false);
+          toggle.focus();
+        }
+      });
+
+      mobileQuery.addEventListener("change", (event) => {
+        if (!event.matches) setMenuState(false);
+      });
+    })();
+  </script>
+</body>
+</html>
