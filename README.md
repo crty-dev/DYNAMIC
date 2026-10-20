@@ -26,6 +26,65 @@ Modern, gizlilik odaklı web analitiği ve gerçek kullanıcı performans ölç�
 - Görev listesi / yol haritası: `docs/ROADMAP.md`
 - Marka varlıkları: `assets/brand/` (aşağıya bakın)
 
+## Collect API (v1)
+
+`POST /api/collect` SDK event batch'ini doğrular ve D1'e yazar. CORS yalnızca
+isteğin `Origin` değerini yansıtır. Site; `site` alanındaki public anahtar veya
+hostname ile, yoksa isteğin Origin/Referer değeriyle çözülür. Yeni bir
+origin'den gelen ilk geçerli yazma siteyi otomatik oluşturur
+(`0002_site_origin_unique.sql`).
+
+```json
+{
+  "site": "example.com",
+  "events": [
+    {
+      "type": "pageview",
+      "path": "/pricing?utm_source=newsletter",
+      "ts": 1792500000000,
+      "session": "s_anon"
+    },
+    {
+      "type": "vital",
+      "metric": "LCP",
+      "value": 1234.5,
+      "rating": "good",
+      "id": "v1-1792500000000",
+      "path": "/pricing"
+    },
+    {
+      "type": "event",
+      "name": "signup",
+      "path": "/welcome",
+      "props": { "plan": "free" }
+    }
+  ]
+}
+```
+
+- `events` yerine doğrudan bir `Event[]` dizisi de gönderilebilir; bu durumda
+  site Origin/Referer'dan çözülür.
+- Limitler: 64 event, 128 KB gövde, 4 KB attribution. `path` yalnızca pathname
+  olarak saklanır (query/fragment atılır). `ua` ve `country` istemciden değil,
+  `User-Agent` ve `cf-ipcountry` başlıklarından alınır.
+- Yanıtlar: `202 { ok, accepted, site, created? }`;
+  `400 invalid_payload / site_required / invalid_json`;
+  `403 origin_mismatch / invalid_origin`;
+  `413 batch_too_large / payload_too_large / attribution_too_large`;
+  `500 storage_error`.
+
+```bash
+curl -X POST http://localhost:8787/api/collect \
+  -H 'Origin: http://localhost:5173' \
+  -H 'Content-Type: application/json' \
+  --data '{"events":[{"type":"pageview","path":"/"}]}'
+```
+
+Yerel API için: `npm run db:migrate:local`, ardından `npm run build` ve
+`npx wrangler dev --local`. `npm run dev` yalnızca Vite arayüzünü çalıştırır.
+Admin/auth, dashboard sorguları ve rate-limit koruması Faz 2'nin sıradaki
+adımlarıdır.
+
 ---
 
 ## Marka
