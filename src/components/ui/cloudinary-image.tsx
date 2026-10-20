@@ -1,26 +1,17 @@
-import { AdvancedImage } from "@cloudinary/react";
 import { Cloudinary } from "@cloudinary/url-gen";
 import { fit } from "@cloudinary/url-gen/actions/resize";
 import { CLOUDINARY_CLOUD_NAME } from "@/lib/cloudinary";
 
-/**
- * Cloudinary-backed image with a local fallback.
- *
- * The URL is built with the official SDK (`@cloudinary/url-gen`), so the
- * delivery gets `f_auto` / `q_auto` and the requested box. If Cloudinary is
- * unreachable the component falls back to the bundled file, so the brand
- * marks never disappear.
- */
 const cloudinary = new Cloudinary({ cloud: { cloudName: CLOUDINARY_CLOUD_NAME } });
 
 export interface CloudinaryImageProps {
-  /** Public id in the DYNAMIC media library. */
   publicId: string;
   alt?: string;
   className?: string;
   width?: number;
   height?: number;
-  /** Local file used when the CDN is unreachable. */
+  /** `sizes` attribute for the srcset; defaults to a fixed pixel width. */
+  sizes?: string;
   fallbackSrc?: string;
   loading?: "eager" | "lazy";
   decoding?: "async" | "sync" | "auto";
@@ -32,19 +23,29 @@ export function CloudinaryImage({
   className,
   width,
   height,
+  sizes,
   fallbackSrc,
   loading = "lazy",
   decoding = "async",
 }: CloudinaryImageProps) {
-  let image = cloudinary.image(publicId).format("auto").quality("auto");
-  if (width && height) image = image.resize(fit().width(width).height(height));
-  else if (width) image = image.resize(fit().width(width));
-  else if (height) image = image.resize(fit().height(height));
+  const build = (targetWidth: number) => {
+    let image = cloudinary.image(publicId).format("auto").quality("auto");
+    const box = height ? fit().width(targetWidth).height(height) : fit().width(targetWidth);
+    return image.resize(box);
+  };
+
+  const base = build(width ?? 512);
+  const candidates = width ? [width, width * 2] : [];
+  const srcSet = candidates
+    .map((candidate) => `${build(candidate).toURL()} ${candidate}w`)
+    .join(", ");
 
   return (
-    <AdvancedImage
-      cldImg={image}
+    <img
       className={className}
+      src={base.toURL()}
+      srcSet={srcSet || undefined}
+      sizes={sizes ?? (width ? `${width}px` : undefined)}
       alt={alt}
       width={width}
       height={height}

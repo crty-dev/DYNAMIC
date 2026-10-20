@@ -11,7 +11,7 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import logoMarkPng from "../../images/logo-removebg-preview.png";
+import logoMarkPng from "../../images/png-to-webp/logo-removebg-preview.webp";
 import { Analytics, Events, Overview, Pages, Rum, Settings as SettingsPage } from "./pages";
 import CloudinaryImage from "../components/ui/cloudinary-image";
 import { CLOUDINARY_ASSETS } from "../lib/cloudinary";
@@ -91,8 +91,8 @@ function BrandMark() {
       className="console__brand-mark"
       publicId={CLOUDINARY_ASSETS.logo}
       fallbackSrc={logoMarkPng}
-      width={120}
-      height={120}
+      width={30}
+      height={30}
       loading="eager"
     />
   );

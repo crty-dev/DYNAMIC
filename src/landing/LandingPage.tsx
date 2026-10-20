@@ -10,11 +10,11 @@ import {
   Scale,
   Zap,
 } from "lucide-react";
-import logoMarkPng from "../../images/logo-removebg-preview.png";
-import analyticsIconPng from "../../images/DYNAMIC_Analytics-removebg-preview.png";
-import rumIconPng from "../../images/DYNAMIC_RUM-removebg-preview.png";
-import sdkIconPng from "../../images/DYNAMIC_SDK-removebg-preview.png";
-import consoleIconPng from "../../images/DYNAMIC_Console-removebg-preview.png";
+import logoMarkPng from "../../images/png-to-webp/logo-removebg-preview.webp";
+import analyticsIconPng from "../../images/png-to-webp/DYNAMIC_Analytics-removebg-preview.webp";
+import rumIconPng from "../../images/png-to-webp/DYNAMIC_RUM-removebg-preview.webp";
+import sdkIconPng from "../../images/png-to-webp/DYNAMIC_SDK-removebg-preview.webp";
+import consoleIconPng from "../../images/png-to-webp/DYNAMIC_Console-removebg-preview.webp";
 import GithubMark from "./GithubMark";
 import DashMock from "./DashMock";
 import TypewriterCode from "./TypewriterCode";
@@ -88,8 +88,9 @@ function BrandMark({ className, eager = false }: { className: string; eager?: bo
       className={className}
       publicId={CLOUDINARY_ASSETS.logo}
       fallbackSrc={logoMarkPng}
-      width={200}
-      height={200}
+      width={42}
+      height={42}
+      sizes="(max-width: 640px) 36px, 42px"
       loading={eager ? "eager" : "lazy"}
     />
   );
@@ -99,18 +100,23 @@ function ProductIcon({
   asset,
   fallback,
   className,
+  size,
+  sizes,
 }: {
   asset: CloudinaryAssetKey;
   fallback: string;
   className: string;
+  size: number;
+  sizes?: string;
 }) {
   return (
     <CloudinaryImage
       className={className}
       publicId={CLOUDINARY_ASSETS[asset]}
       fallbackSrc={fallback}
-      width={200}
-      height={200}
+      width={size}
+      height={size}
+      sizes={sizes}
     />
   );
 }
@@ -250,6 +256,8 @@ export default function LandingPage() {
                   className="card__icon"
                   asset="analytics"
                   fallback={analyticsIconPng}
+                  size={76}
+                  sizes="(max-width: 560px) 64px, 76px"
                 />
                 <p className="card__name">DYNAMIC Analytics</p>
                 <h3 className="card__title">Analytics Dashboard</h3>
@@ -265,7 +273,13 @@ export default function LandingPage() {
               </article>
 
               <article className="card card--half" id="rum" data-reveal style={delay(90)}>
-                <ProductIcon className="card__icon" asset="rum" fallback={rumIconPng} />
+                <ProductIcon
+                  className="card__icon"
+                  asset="rum"
+                  fallback={rumIconPng}
+                  size={76}
+                  sizes="(max-width: 560px) 64px, 76px"
+                />
                 <p className="card__name">DYNAMIC RUM</p>
                 <h3 className="card__title">Real User Monitoring</h3>
                 <p className="card__text">
@@ -287,6 +301,8 @@ export default function LandingPage() {
                     className="card__icon card__icon--sm"
                     asset="sdk"
                     fallback={sdkIconPng}
+                    size={58}
+                    sizes="(max-width: 560px) 50px, 58px"
                   />
                   <p className="card__name">DYNAMIC SDK + Console</p>
                 </div>
@@ -317,6 +333,8 @@ export default function LandingPage() {
                     className="cta__icon"
                     asset="console"
                     fallback={consoleIconPng}
+                    size={58}
+                    sizes="(max-width: 560px) 48px, 58px"
                   />
                 </span>
                 <h2 className="cta__title" id="cta-title">

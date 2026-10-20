@@ -1,0 +1,103 @@
+{
+  "$schema": "https://dynamic.crty-dev.com/ai-catalog.json",
+  "name": "DYNAMIC",
+  "version": "1.0.0",
+  "description": "Open-source, privacy-first web analytics and real-user monitoring that runs entirely on Cloudflare's free tier.",
+  "url": "https://dynamic.crty-dev.com/",
+  "logo": "https://dynamic.crty-dev.com/brand/icon-512.png",
+  "license": "MIT",
+  "language": "en",
+  "categories": ["analytics", "rum", "web-vitals", "privacy", "self-hosted", "cloudflare"],
+  "keywords": [
+    "privacy-first analytics",
+    "real user monitoring",
+    "core web vitals",
+    "server-side analytics",
+    "cloudflare workers",
+    "d1"
+  ],
+  "entrypoints": [
+    {
+      "name": "Website",
+      "url": "https://dynamic.crty-dev.com/",
+      "type": "landing"
+    },
+    {
+      "name": "Console",
+      "url": "https://dynamic.crty-dev.com/dashboard",
+      "type": "dashboard"
+    },
+    {
+      "name": "Source code",
+      "url": "https://github.com/crty-dev/DYNAMIC",
+      "type": "repository"
+    }
+  ],
+  "products": [
+    {
+      "id": "analytics",
+      "name": "DYNAMIC Analytics",
+      "summary": "Pageviews, referrers, devices and countries without cookies or personal data."
+    },
+    {
+      "id": "rum",
+      "name": "DYNAMIC RUM",
+      "summary": "Core Web Vitals (LCP, INP, CLS, FCP, TTFB) collected from real visitors."
+    },
+    {
+      "id": "sdk",
+      "name": "DYNAMIC SDK",
+      "summary": "One script tag or one npm install; batches pageviews, vitals and custom events."
+    },
+    {
+      "id": "console",
+      "name": "DYNAMIC Console",
+      "summary": "Dashboard for the collected data, served by the same Cloudflare Worker."
+    }
+  ],
+  "api": {
+    "baseUrl": "https://dynamic.crty-dev.com",
+    "endpoints": [
+      {
+        "method": "POST",
+        "path": "/api/collect",
+        "summary": "Ingest a batch of SDK events.",
+        "contentType": "application/json",
+        "limits": { "maxEvents": 64, "maxBodyBytes": 131072 }
+      },
+      {
+        "method": "GET",
+        "path": "/api/stats",
+        "summary": "Aggregate traffic, Web Vitals and events for the console.",
+        "query": { "range": ["24h", "7d", "30d"], "site": "optional public id or hostname" }
+      },
+      {
+        "method": "GET",
+        "path": "/api/health",
+        "summary": "Service and database health check."
+      },
+      {
+        "method": "GET",
+        "path": "/api/media/config",
+        "summary": "Public Cloudinary delivery configuration."
+      }
+    ]
+  },
+  "privacy": {
+    "cookies": false,
+    "personalData": false,
+    "ipStorage": false,
+    "thirdPartyTrackers": false,
+    "selfHosted": true
+  },
+  "stack": [
+    "React 19",
+    "TypeScript",
+    "Vite",
+    "Tailwind CSS v4",
+    "Hono",
+    "Cloudflare Workers",
+    "Cloudflare D1",
+    "Cloudinary"
+  ]
+}

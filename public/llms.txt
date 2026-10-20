@@ -1,0 +1,56 @@
+# DYNAMIC
+
+> DYNAMIC is an open-source, privacy-first web analytics and real-user
+> monitoring (RUM) platform. It runs entirely on Cloudflare's free tier:
+> a Hono Worker for ingest, D1 for storage, and static assets for the site.
+> No cookies, no personal data, no third-party trackers.
+
+DYNAMIC is for developers who want to see what happens on their own site
+without shipping personal data to anyone else. Events are collected by a
+small SDK, validated on the edge and written to a database you own.
+
+## What it does
+
+- **DYNAMIC Analytics** — pageviews, referrers, devices and countries, without cookies.
+- **DYNAMIC RUM** — Core Web Vitals (LCP, INP, CLS, FCP, TTFB) collected with web-vitals.
+- **DYNAMIC SDK** — one script tag or one npm install; batches events, no personal data.
+- **DYNAMIC Console** — a dashboard for the collected data, served by the same Worker.
+
+## Quick facts
+
+- **Home:** https://dynamic.crty-dev.com/
+- **Console:** https://dynamic.crty-dev.com/dashboard
+- **Source code (MIT):** https://github.com/crty-dev/DYNAMIC
+- **License:** MIT
+- **Stack:** React 19, TypeScript, Vite, Tailwind CSS v4, Hono, Cloudflare Workers, D1
+- **Pricing:** free, on Cloudflare's Free plan (100k requests/day, 5 GB D1)
+
+## API
+
+Collect endpoint (POST, JSON):
+
+```
+POST https://dynamic.crty-dev.com/api/collect
+```
+
+Body: `{ "site": "example.com", "events": [ { "type": "pageview", "path": "/" } ] }`
+or a bare `Event[]`. Limits: 64 events, 128 KB body, 4 KB attribution per event.
+
+Read-only stats for the console (GET):
+
+```
+GET https://dynamic.crty-dev.com/api/stats?range=24h|7d|30d
+```
+
+## Privacy
+
+- No cookies, no fingerprinting, no cross-site identifiers.
+- IP addresses are never stored; country is derived from the edge request.
+- Paths are stored without query strings or fragments.
+- Events stay in the D1 database that you deploy.
+
+## Notes for AI agents
+
+- The landing page is server-rendered markup in the HTML (React hydrates it in place).
+- `robots.txt`, `sitemap.xml`, `llms.txt` and `ai-catalog.json` are served as plain static files.
+- The API is CORS-open for `POST /api/collect`; the console reads only aggregate data.

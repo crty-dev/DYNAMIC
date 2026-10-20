@@ -147,9 +147,12 @@ Gradyan yönü değiştirilmez, logo yeniden renklendirilmez.
 | Kod / etiket    | JetBrains Mono       | 400              | SIL OFL  |
 
 Font dosyaları ve OFL lisans metinleri `assets/brand/fonts/` altındadır. Web
-sitesi fontları kendi sunucusundan `@font-face` ile yükler (`src/index.css`);
-üçüncü taraf font isteği yoktur. Raster üretimi de aynı yerel TTF dosyalarını
-kullanır. Tipografik yedekler: `Helvetica Neue, Arial, sans-serif` ve
+sitesi, aynı TTF'lerden **Latin alt kümeli woff2** üretimini kullanır
+(`public/fonts/*.woff2`, ≈13 KB each; OFL metinleri de `public/fonts/` içindedir)
+ve `@font-face` + `font-display: swap` ile kendi sunucusundan yükler — üçüncü
+taraf font isteği yoktur. Above-the-fold iki font `index.html` içinde
+`preload` edilir. Raster üretimi de aynı yerel TTF dosyalarını kullanır.
+Tipografik yedekler: `Helvetica Neue, Arial, sans-serif` ve
 `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`.
 
 ### Dosya yapısı
@@ -188,6 +191,16 @@ günceller. Metinler fontkit ile path'e çevrilir; bu yüzden raster banner'lard
 font kurulu olmasına gerek yoktur. Üretilen dosyalar elle düzenlenmemelidir —
 değişiklik yapılacaksa `scripts/brand/build.mjs` güncellenip komut yeniden
 çalıştırılır.
+
+Web fontları (Latin alt küme + woff2) `pyftsubset` ile üretilir:
+
+```bash
+pyftsubset assets/brand/fonts/Montserrat-Bold.ttf \
+  --unicodes="U+0020-007E,U+00A0-00FF,U+2013-2014,U+2018-201F,U+2022,U+2026,U+2192" \
+  --flavor=woff2 --output-file=public/fonts/Montserrat-Bold.woff2
+```
+
+OFL lisans metinleri `public/fonts/` altında da bulunur.
 
 ### Logo kullanım kuralları
 
@@ -233,6 +246,25 @@ alanının arkasındaki radyal ışığı üretir (`radial-gradient`, marka mavi
 turkuaz, düşük opaklık). Tailwind arbitrary background sınıfı olarak gelir;
 hero görseli `.hero__stage` içinde `isolation: isolate` ile stack'lenir, bu
 yüzden ışık dashboard mock'unun arkasında kalır ve sayfaya taşmaz.
+
+### Performans notları (Lighthouse)
+
+- **Statik dosyalar gerçek dosya olarak sunulur:** `robots.txt`, `llms.txt`,
+  `ai-catalog.json`, `sitemap.xml` `public/` altındadır; SPA fallback onları
+  HTML'e çevirmez.
+- **Dokunma hedefleri ≥24 px:** footer linkleri, nav linkleri, kart linkleri ve
+  konsol düğmeleri iç boşlukla büyütülür (görsel yerleşim değişmez).
+- **Sadece composited animasyon:** hero grafiğinin çizimi `stroke-dashoffset`
+  yerine ölçeklenen bir maske (`transform: scaleX`) ile yapılır; boyut/renk
+  animasyonu yoktur.
+- **Doğru boyutlu görseller:** Cloudinary teslimi ekrandaki gerçek boyuta göre
+  istenir (42/76/58 px) ve `srcset` + `sizes` ile 1×/2× aday sunar; yerel
+  WebP yedek yalnızca hata durumunda indirilir.
+- **Font gecikmesi yok:** Latin alt kümeli woff2 (~13 KB) + `preload` +
+  `font-display: swap`.
+- **Kod bölme:** konsol (`/dashboard`) `React.lazy` ile ayrı chunk; landing
+  sayfası grafik kütüphanesini indirmez.
+- **Preconnect:** `res.cloudinary.com` için `<link rel="preconnect">` head'de.
 
 ### Animasyon
 

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Statik varlıklar ve konsol arayüzleri
+Disallow: /assets/
+
+Sitemap: https://dynamic.crty-dev.com/sitemap.xml

@@ -1,30 +1,32 @@
 @import "tailwindcss";
 
-/* Self-hosted brand fonts (SIL OFL) — keeps the site free of third-party requests. */
+/* Self-hosted brand fonts (SIL OFL) — keeps the site free of third-party requests.
+   The woff2 files in /public/fonts are Latin-subset builds of the TTF masters
+   in assets/brand/fonts (≈13 KB each instead of ≈180 KB). */
 @font-face {
   font-family: "Montserrat";
-  src: url("../assets/brand/fonts/Montserrat-Medium.ttf") format("truetype");
+  src: url("/fonts/Montserrat-Medium.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Montserrat";
-  src: url("../assets/brand/fonts/Montserrat-SemiBold.ttf") format("truetype");
+  src: url("/fonts/Montserrat-SemiBold.woff2") format("woff2");
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Montserrat";
-  src: url("../assets/brand/fonts/Montserrat-Bold.ttf") format("truetype");
+  src: url("/fonts/Montserrat-Bold.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "JetBrains Mono";
-  src: url("../assets/brand/fonts/JetBrainsMono-Regular.ttf") format("truetype");
+  src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;

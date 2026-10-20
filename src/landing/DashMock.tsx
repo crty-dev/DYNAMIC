@@ -186,6 +186,9 @@ export default function DashMock() {
                   <stop offset="0" stopColor="#1d70fd" />
                   <stop offset="1" stopColor="#23d8ca" />
                 </linearGradient>
+                <mask id="dash-reveal" maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H}>
+                  <rect className="dash__reveal" x="0" y="0" width={W} height={H} fill="#fff" />
+                </mask>
               </defs>
               {[48, 100, 152, 204].map((gy) => (
                 <line key={gy} x1="0" x2={W} y1={gy} y2={gy} stroke="rgba(255,255,255,0.055)" strokeWidth="1" />
@@ -202,7 +205,7 @@ export default function DashMock() {
                 stroke="url(#dash-line)"
                 strokeWidth="3"
                 strokeLinecap="round"
-                pathLength={1}
+                mask="url(#dash-reveal)"
               />
               <line
                 className="dash__guide"

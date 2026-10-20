@@ -270,6 +270,7 @@ html {
 }
 
 .nav__links a {
+  padding: 11px 0;
   color: var(--muted);
   font-size: 13.5px;
   font-weight: 500;
@@ -290,8 +291,8 @@ html {
 
 .nav__toggle {
   display: none;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -420,6 +421,7 @@ html {
 }
 
 .hero__banner a {
+  padding: 5px 2px;
   color: var(--teal);
   font-weight: 700;
   text-decoration: underline;
@@ -713,7 +715,7 @@ html {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding-bottom: 2px;
+  padding: 5px 0;
   border-bottom: 1px solid var(--line-strong);
   color: var(--text);
   font-size: 14px;
@@ -1071,10 +1073,15 @@ html {
   overflow: visible;
 }
 
-.dash__line {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: draw-line 1.9s cubic-bezier(0.33, 0.8, 0.28, 1) 0.35s forwards;
+/* The line is revealed with a scaled mask (transform only) so the draw
+   animation stays on the compositor — stroke-dashoffset is a paint-only
+   animation and Lighthouse flags it. */
+.dash__reveal {
+  transform: scaleX(0);
+  transform-box: fill-box;
+  transform-origin: left center;
+  will-change: transform;
+  animation: reveal-line 1.9s cubic-bezier(0.33, 0.8, 0.28, 1) 0.35s forwards;
 }
 
 .dash__area {
@@ -1409,7 +1416,7 @@ html {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding-bottom: 2px;
+  padding: 5px 0;
   border-bottom: 1px solid var(--line-strong);
   color: var(--text);
   font-size: 14px;
@@ -1464,9 +1471,9 @@ html {
    Keyframes
    ========================================================================== */
 
-@keyframes draw-line {
+@keyframes reveal-line {
   to {
-    stroke-dashoffset: 0;
+    transform: scaleX(1);
   }
 }
 
@@ -1922,8 +1929,8 @@ html {
     transform: none;
   }
 
-  .dash__line {
-    stroke-dashoffset: 0;
+  .dash__reveal {
+    transform: scaleX(1);
     animation: none;
   }
 
