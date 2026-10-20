@@ -3,6 +3,7 @@ import { captcha } from "better-auth/plugins";
 import { dash } from "@better-auth/infra";
 import { config, type Bindings } from "./env";
 import { sendMail } from "./mailer";
+import { executionContextFor } from "./execution";
 import { BETTER_AUTH_KV_URL } from "../src/lib/infra";
 
 /**
@@ -17,6 +18,19 @@ import { BETTER_AUTH_KV_URL } from "../src/lib/infra";
  */
 
 type MailTarget = { user: { email: string; name?: string | null }; url: string };
+
+/**
+ * The background runner of the request that triggered the mail.
+ *
+ * The mail is handed to the execution context instead of being awaited: the
+ * answer must not arrive later for an address that exists than for one that
+ * does not.
+ */
+function waitUntilFor(request?: Request): ((promise: Promise<unknown>) => void) | undefined {
+  const context = executionContextFor(request);
+  if (!context) return undefined;
+  return (promise) => context.waitUntil(promise);
+}
 
 /**
  * The social providers that are configured.
@@ -111,20 +125,24 @@ export function buildAuthOptions(env: Bindings): BetterAuthOptions {
       sendOnSignIn: true,
       autoSignInAfterVerification: false,
       expiresIn: 60 * 60,
-      sendVerificationEmail: async ({ user, url }: MailTarget) => {
-        await sendMail(env, {
-          to: user.email,
-          subject: "DYNAMIC hesabınızı doğrulayın",
-          text: [
-            `Merhaba ${user.name ?? ""},`.trim(),
-            "",
-            "Hesabınızı doğrulamak için aşağıdaki bağlantıyı kullanın:",
-            url,
-            "",
-            "Bu bağlantı 1 saat geçerlidir. Talep etmediyseniz bu e-postayı yok sayabilirsiniz.",
-            "— DYNAMIC",
-          ].join("\n"),
-        });
+      sendVerificationEmail: async ({ user, url }: MailTarget, request?: Request) => {
+        await sendMail(
+          env,
+          {
+            to: user.email,
+            subject: "DYNAMIC hesabınızı doğrulayın",
+            text: [
+              `Merhaba ${user.name ?? ""},`.trim(),
+              "",
+              "Hesabınızı doğrulamak için aşağıdaki bağlantıyı kullanın:",
+              url,
+              "",
+              "Bu bağlantı 1 saat geçerlidir. Talep etmediyseniz bu e-postayı yok sayabilirsiniz.",
+              "— DYNAMIC",
+            ].join("\n"),
+            },
+          { waitUntil: waitUntilFor(request) },
+        );
       },
     },
     emailAndPassword: {
@@ -140,21 +158,25 @@ export function buildAuthOptions(env: Bindings): BetterAuthOptions {
       maxPasswordLength: 128,
       resetPasswordTokenExpiresIn: 60 * 60,
       revokeSessionsOnPasswordReset: true,
-      sendResetPassword: async ({ user, url }: MailTarget) => {
-        await sendMail(env, {
-          to: user.email,
-          subject: "DYNAMIC şifre sıfırlama",
-          text: [
-            `Merhaba ${user.name ?? ""},`.trim(),
-            "",
-            "Yeni bir şifre belirlemek için aşağıdaki bağlantıyı kullanın:",
-            url,
-            "",
-            "Bu bağlantı 1 saat geçerlidir ve yalnızca bir kez kullanılabilir.",
-            "Talep etmediyseniz bu e-postayı yok sayabilirsiniz.",
-            "— DYNAMIC",
-          ].join("\n"),
-        });
+      sendResetPassword: async ({ user, url }: MailTarget, request?: Request) => {
+        await sendMail(
+          env,
+          {
+            to: user.email,
+            subject: "DYNAMIC şifre sıfırlama",
+            text: [
+              `Merhaba ${user.name ?? ""},`.trim(),
+              "",
+              "Yeni bir şifre belirlemek için aşağıdaki bağlantıyı kullanın:",
+              url,
+              "",
+              "Bu bağlantı 1 saat geçerlidir ve yalnızca bir kez kullanılabilir.",
+              "Talep etmediyseniz bu e-postayı yok sayabilirsiniz.",
+              "— DYNAMIC",
+            ].join("\n"),
+            },
+          { waitUntil: waitUntilFor(request) },
+        );
       },
     },
     session: {

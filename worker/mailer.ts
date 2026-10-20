@@ -35,11 +35,20 @@ export function clearOutbox(): void {
  * never depends on a paid service:
  *   MAIL_PROVIDER_URL   e.g. https://api.resend.com/emails
  *   MAIL_PROVIDER_TOKEN bearer token of that provider
- *   MAIL_FROM           sender address
+ *   MAIL_FROM           sender address (must match a verified domain)
  *
  * Without a provider the mail is only logged (development) and never sent.
+ *
+ * In production the message is handed to the execution context instead of
+ * being awaited: the response time must not reveal whether the address
+ * belongs to an account. In development the send is awaited so that the
+ * outbox is complete when the request returns.
  */
-export async function sendMail(env: Bindings, message: MailMessage): Promise<MailResult> {
+export async function sendMail(
+  env: Bindings,
+  message: MailMessage,
+  options: { waitUntil?: (promise: Promise<unknown>) => void } = {},
+): Promise<MailResult> {
   const { mail, isDev } = config(env);
 
   if (isDev) {
@@ -59,29 +68,39 @@ export async function sendMail(env: Bindings, message: MailMessage): Promise<Mai
     return { delivered: false, provider: "none" };
   }
 
-  try {
-    const response = await fetch(mail.providerUrl, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${mail.providerToken}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        from: mail.from,
-        to: [message.to],
-        subject: message.subject,
-        text: message.text,
-        html: message.html,
-      }),
-    });
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      console.error("[mail] provider error", response.status, body.slice(0, 200));
-      return { delivered: false, provider: "http", error: `provider_error_${response.status}` };
+  const send = async (): Promise<MailResult> => {
+    try {
+      const response = await fetch(mail.providerUrl as string, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${mail.providerToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          from: mail.from,
+          to: [message.to],
+          subject: message.subject,
+          text: message.text,
+          html: message.html,
+        }),
+      });
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        console.error("[mail] provider error", response.status, body.slice(0, 200));
+        return { delivered: false, provider: "http", error: `provider_error_${response.status}` };
+      }
+      return { delivered: true, provider: "http" };
+    } catch (error) {
+      console.error("[mail] provider request failed", error);
+      return { delivered: false, provider: "http", error: "provider_unreachable" };
     }
-    return { delivered: true, provider: "http" };
-  } catch (error) {
-    console.error("[mail] provider request failed", error);
-    return { delivered: false, provider: "http", error: "provider_unreachable" };
+  };
+
+  if (options.waitUntil) {
+    // Fire and forget: the isolate stays alive until the mail is handed over.
+    options.waitUntil(send());
+    return { delivered: false, provider: "http" };
   }
+
+  return await send();
 }

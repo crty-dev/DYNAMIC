@@ -193,6 +193,25 @@ getirilmez ve otomatik olarak ücretli plana geçilmez.
 > Doğrulama zorunluyken bir giriş denemesi e-postayı **otomatik yeniden
 > gönderir** (`sendOnSignIn`), "Tekrar gönder" düğmesine gerek kalmaz.
 
+**Resend ile (ücretsiz 3.000 e-posta/ay, 100/gün):**
+
+```bash
+# 1) Resend'de API key oluşturun (https://resend.com/api-keys)
+# 2) Alan adını doğrulayın (https://resend.com/domains) — MAIL_FROM bu
+#    alan adına ait olmalı, aksi halde e-postalar spam'e düşer
+# 3) Worker secret'ları:
+npx wrangler secret put MAIL_PROVIDER_URL     # https://api.resend.com/emails
+npx wrangler secret put MAIL_PROVIDER_TOKEN   # re_xxxxxxxxx
+```
+
+Adaptör sağlayıcıdan bağımsızdır (Resend, Postmark, kendi SMTP geçidi…):
+`POST {MAIL_PROVIDER_URL}` gövdesi `{ from, to[], subject, text, html }`,
+başlık `Authorization: Bearer {MAIL_PROVIDER_TOKEN}`.
+
+> **Güvenlik notu:** Prod'da e-posta gönderimi `waitUntil` ile **arka planda**
+> yapılır; yanıt süresi, adresin bir hesaba ait olup olmadığını ele vermez.
+> Geliştirmede outbox'a yazılır ve istek yanıtlanmadan önce hazır olur.
+
 ### 4.5 Sosyal giriş (isteğe bağlı)
 
 Console'da "GitHub / Google ile devam et" düğmeleri **yalnızca** o sağlayıcının

@@ -794,6 +794,8 @@ html {
 }
 
 /* CTA card */
+/* The closing call to action: a deep blue panel with a teal hairline instead
+   of a flat bright blue box, so it keeps the premium dark mood. */
 .card--cta {
   display: flex;
   align-items: center;
@@ -801,15 +803,16 @@ html {
   width: 100%;
   margin-top: 20px;
   padding: 64px 40px;
-  border-color: var(--blue);
-  background: var(--blue);
+  border-color: rgba(35, 216, 202, 0.34);
+  background: linear-gradient(140deg, #123a63 0%, #0c2743 52%, #0a1f36 100%);
   text-align: center;
+  box-shadow: 0 30px 80px -40px rgba(4, 22, 42, 0.95);
 }
 
 .card--cta:hover {
   transform: none;
-  border-color: var(--blue);
-  background: var(--blue);
+  border-color: rgba(35, 216, 202, 0.6);
+  background: linear-gradient(140deg, #14456f 0%, #0e2c4b 52%, #0b233c 100%);
 }
 
 .cta__content {
@@ -875,11 +878,15 @@ html {
   max-width: 1000px;
   margin-inline: auto;
   overflow: hidden;
-  border: 1px solid rgba(32, 169, 222, 0.28);
+  border: 1px solid rgba(32, 169, 222, 0.34);
   border-radius: 14px;
   background: var(--ink-soft);
   font-size: 12px;
   text-align: left;
+  /* The mockup reads as a separate surface instead of melting into the page. */
+  box-shadow:
+    0 30px 70px -30px rgba(3, 12, 24, 0.9),
+    0 0 60px -24px rgba(29, 114, 252, 0.35);
 }
 
 .dash__chrome {
@@ -1262,7 +1269,7 @@ html {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #071522;
+  background: #0a1c2d;
 }
 
 .code__chrome {
@@ -1346,7 +1353,7 @@ html {
 }
 
 .tok--com {
-  color: #7d96ad;
+  color: #93b0c8;
   font-style: italic;
 }
 
@@ -1395,7 +1402,8 @@ html {
   padding: 30px 32px 32px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(11, 29, 47, 0.86);
+  /* Opaque enough that the data rain behind it does not hurt the reading. */
+  background: rgba(8, 24, 39, 0.95);
 }
 
 .signal__tag {

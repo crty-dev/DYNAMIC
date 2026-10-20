@@ -19,7 +19,7 @@ const Circle = forwardRef<
   <div
     ref={ref}
     className={cn(
-      "z-10 flex size-11 shrink-0 items-center justify-center rounded-full border border-[color:var(--line)] bg-[color:var(--ink-deep)] p-2 sm:size-14 sm:p-3",
+      "z-10 flex size-12 shrink-0 items-center justify-center rounded-full border border-[color:var(--line-strong)] bg-[color:var(--ink-deep)] p-2.5 sm:size-[60px] sm:p-3",
       className,
     )}
   >
@@ -49,9 +49,9 @@ export default function TechStackBeam() {
   const beam = {
     containerRef,
     toRef: centerRef,
-    pathColor: "rgba(35, 216, 202, 0.5)",
-    pathWidth: 1.75,
-    pathOpacity: 0.22,
+    pathColor: "rgba(35, 216, 202, 0.62)",
+    pathWidth: 2,
+    pathOpacity: 0.3,
     gradientStartColor: "#23d8ca",
     gradientStopColor: "#1d70fd",
   } as const;
@@ -68,7 +68,7 @@ export default function TechStackBeam() {
               key={item.key}
               className="flex flex-col items-center gap-1.5 sm:flex-row sm:justify-end sm:gap-3"
             >
-              <span className="order-2 max-w-[7.5rem] text-center text-[10px] leading-tight text-[color:var(--muted)] sm:order-1 sm:max-w-none sm:text-right sm:text-sm">
+              <span className="order-2 max-w-[7.5rem] text-center text-[11px] leading-tight text-[#c3d5e4] sm:order-1 sm:max-w-none sm:text-right sm:text-[13.5px]">
                 {item.label}
               </span>
               <Circle ref={refs[item.key]}>
@@ -81,11 +81,11 @@ export default function TechStackBeam() {
         <div className="flex flex-col items-center gap-3">
           <Circle
             ref={centerRef}
-            className="size-20 border-[color:var(--line-strong)] bg-[color:var(--ink)] p-3.5 sm:size-24 sm:p-4"
+            className="size-20 border-[color:var(--line-strong)] bg-[color:var(--ink)] p-3.5 sm:size-[88px] sm:p-4"
           >
             <img src={brandMark} alt="" width={48} height={48} className="h-full w-full" />
           </Circle>
-          <span className="text-center font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--faint)]">
+          <span className="text-center font-mono text-[10px] uppercase tracking-[0.18em] text-[#7fd8d0]">
             Dynamic SDK
           </span>
         </div>
@@ -99,7 +99,7 @@ export default function TechStackBeam() {
               <Circle ref={refs[item.key]}>
                 <item.Icon size={20} className={item.tint} aria-hidden />
               </Circle>
-              <span className="order-2 max-w-[7.5rem] text-center text-[10px] leading-tight text-[color:var(--muted)] sm:order-1 sm:max-w-none sm:text-left sm:text-sm">
+              <span className="order-2 max-w-[7.5rem] text-center text-[11px] leading-tight text-[#c3d5e4] sm:order-1 sm:max-w-none sm:text-left sm:text-[13.5px]">
                 {item.label}
               </span>
             </li>

@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { createAuth, enabledSocialProviders } from "./auth";
+import { rememberExecutionContext } from "./execution";
 import {
   analyticsSummary,
   bucketCount,
@@ -2202,6 +2203,13 @@ app.use("/api/auth/*", authCors);
  */
 const authHandler = async (c: Context<AppEnv>) => {
   const auth = createAuth(c.env);
+  // Remember the execution context of this request so that the mail adapter
+  // can send in the background (the answer must not be delayed by the mail).
+  try {
+    rememberExecutionContext(c.req.raw, c.executionCtx);
+  } catch {
+    /* no execution context (tests, preview) */
+  }
   const response = await auth.handler(c.req.raw);
 
   // The handler returns a raw Response, so the CORS headers have to be set on
