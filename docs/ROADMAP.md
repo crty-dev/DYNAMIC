@@ -47,7 +47,7 @@ Oşe olunar) öncelikli, mevcut boş workspace gerçeklerine göre.
 - [x] `npx wrangler d1 create dynamic` → projeye bağla
 - [x] `npx wrangler d1 migrations apply dynamic --remote`
 - [x] `npx wrangler deploy` → `dynamic.streamforge-46.workers.dev` yayında
-- [ ] Custom domain: `dynamic.crty-dev.com` Worker'a bağlanacak (DNS yazma yetkisi gerekiyor)
+- [x] Custom domain: `dynamic.crty-dev.com` Worker'a bağlandı ve HTTPS üzerinden yayında
 - [x] Cloudflare Observability: `observability.enabled` wrangler.jsonc'de açık
 - [ ] Free plan kota gözlemi: Workers istek/g, D1 row read/gün — Monitoring noktası
 
