@@ -53,9 +53,28 @@ npm run dev                         # http://localhost:5173
 | `npm run build` | Üretim çıktısı (`dist/`). |
 | `npm run typecheck` | `tsc --noEmit` (uygulama + Worker). |
 | `npm run lint` | oxlint. |
-| `npm test` | 24 test (SDK, API, build) — gerçek `wrangler dev` + yerel D1. |
+| `npm test` | 47 test (SDK, API, uygulama, build) — gerçek `wrangler dev` + yerel D1. |
 | `npm run license:audit` | Bağımlılık lisans tablosu. |
 | `npm run deploy` | Cloudflare'a yayınlar. |
+
+### Tek tıkla güncelleme (Windows)
+
+Depoda `update.bat` var: kontrol → test → build → deploy → canlı doğrulama
+→ (isteğe bağlı) commit ve push.
+
+```bat
+update.bat                                  :: tam döngü
+update.bat --skip-tests --no-deploy        :: sadece kontrol + build
+update.bat --migrate --commit "mesaj" --push :: migration + commit + push
+update.bat --from build                     :: sadece build ve sonrası
+update.bat --help                           :: tüm seçenekler
+```
+
+Adımlar: `deps → check → test → build → migrate → deploy → verify → commit →
+push`. `--migrate` uzak D1 migration'larını uygular (varsayılan: uygulanmaz,
+çünkü üretim şemasını değiştirir). Betik, deploy sonrası
+`/api/health`, `/api/auth/providers` ve `/app/login` uçlarını kontrol eder ve
+hata varsa durur.
 
 ## Cloudflare Free limitleri
 
@@ -371,14 +390,17 @@ paket maliyetini ödemez. Konsol her 30 saniyede kendini yeniler.
 ## Testler
 
 ```bash
-npm test     # build:sdk + node --test (24 test)
+npm test     # build:sdk + node --test (47 test)
 ```
 
 | Dosya | Kapsam |
 | --- | --- |
 | `tests/sdk.test.mjs` | SDK: sayfa görüntüleme, referrer/UTM, oturum id, prop filtresi (kişisel veri), geçersiz event adı, batch, opt-out, DNT izni, oturum yeniden kullanımı. |
 | `tests/api.test.mjs` | Bozuk payload, geçersiz JSON, batch limiti, kayıt + kabul edilen sayısı, vital dedup, analytics raporu, site izolasyonu, origin uyuşmazlığı, boş veri, yetersiz veride p75'in boş kalması, admin koruması, goal/dönüşüm takibi, kota hatası, retention purge. |
-| `tests/build.test.mjs` | Üretim build'i: HTML kabuğu, SDK'nın varlığı ve boyutu, giriş paketinin boyutu. |
+| `tests/app.test.mjs` | Console akışı: kayıt, e-posta doğrulama, giriş/oturum/çıkış, şifre sıfırlama, DNS doğrulama, proje izolasyonu, sosyal sağlayıcı ucu, üretim değişkenleri. |
+| `tests/auth-ratelimit.test.mjs` | Auth hız sınırı: IP başına ayrı kova, ziyaretçi tarafından gönderilen `x-forwarded-for` yok sayılıyor. |
+| `tests/ratelimit.test.mjs` | Worker içi (isolate) hız sınırı birimi. |
+| `tests/build.test.mjs` | Üretim build'i: HTML kabuğu, SDK'nın varlığı ve boyutu, giriş paketinin boyutu, `/app` kabuğu. |
 
 API testleri gerçek `wrangler dev` + yerel D1 üzerinde çalışır (Miniflare),
 yani mock değil gerçek HTTP + gerçek SQL yolu test edilir.
