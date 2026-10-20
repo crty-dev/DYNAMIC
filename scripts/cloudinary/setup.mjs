@@ -72,11 +72,22 @@ if (/[<>]/.test(apiKey) || /[<>]/.test(apiSecret)) {
 const auth = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString("base64")}`;
 
 function sign(params) {
-  const base = Object.entries(params)
-    .filter(([, v]) => v !== undefined && v !== "")
-    .map(([k, v]) => `${k}=${v}`)
+  // Cloudinary signs the parameters sorted alphabetically, joined with "&",
+  // followed by the API secret.
+  const base = Object.keys(params)
+    .sort()
+    .map((key) => `${key}=${params[key]}`)
     .join("&");
   return crypto.createHash("sha1").update(base + apiSecret).digest("hex");
+}
+
+/** HEAD on the delivery URL tells us whether a public id already exists. */
+async function assetExists(publicId) {
+  const res = await fetch(
+    `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`,
+    { method: "HEAD" },
+  );
+  return res.ok;
 }
 
 async function api(pathname, init = {}) {
@@ -114,7 +125,8 @@ const presetBody = {
   allowed_formats: "jpg,jpeg,png,webp,avif,svg",
   max_file_size: MAX_FILE_SIZE,
   tags: ["dynamic", "media"],
-  context: { alt: "dynamic", caption: "dynamic" },
+  // Cloudinary expects the context as "key=value|key=value", not an object.
+  context: "alt=dynamic|caption=dynamic",
 };
 
 const created = await api("/upload_presets", {
@@ -122,7 +134,12 @@ const created = await api("/upload_presets", {
   body: JSON.stringify(presetBody),
 });
 let presetState = "created";
-if (created.status === 409 || created.body?.error?.message?.includes("already exists")) {
+const presetMessage = (created.body?.error?.message ?? "").toLowerCase();
+if (
+  created.status === 409 ||
+  presetMessage.includes("already exists") ||
+  presetMessage.includes("already been taken")
+) {
   const updated = await api(`/upload_presets/${UPLOAD_PRESET}`, {
     method: "PUT",
     body: JSON.stringify(presetBody),
@@ -152,6 +169,11 @@ if (wantUpload) {
   for (const file of targets) {
     const base = path.basename(file).replace(/\.[^.]+$/, "");
     const publicId = base.replace(/-removebg-preview$/i, "").toLowerCase();
+    if (await assetExists(publicId)) {
+      console.log(`  = ${publicId} — zaten var`);
+      results.push({ file: path.basename(file), publicId, delivery: `https://res.cloudinary.com/${cloudName}/image/upload/f_auto,q_auto/${publicId}` });
+      continue;
+    }
     const timestamp = Math.floor(Date.now() / 1000);
     const params = { folder: BRAND_FOLDER, timestamp, public_id: publicId };
     const form = new FormData();

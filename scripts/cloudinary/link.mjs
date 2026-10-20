@@ -29,7 +29,6 @@ const CLOUD_NAME = "di9c12gg6";
 const API_KEY = "657115753521274";
 const UPLOAD_PRESET = "dynamic_uploads";
 const UPLOAD_FOLDER = "dynamic/uploads";
-const BRAND_FOLDER = "dynamic/brand";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 /** Brand assets that must exist in the media library. */
@@ -115,11 +114,22 @@ function api(pathname, apiSecret, init = {}) {
 }
 
 function sign(params, apiSecret) {
-  const base = Object.entries(params)
-    .filter(([, value]) => value !== undefined && value !== "")
-    .map(([key, value]) => `${key}=${value}`)
+  // Cloudinary signs the parameters sorted alphabetically, joined with "&",
+  // followed by the API secret.
+  const base = Object.keys(params)
+    .sort()
+    .map((key) => `${key}=${params[key]}`)
     .join("&");
   return crypto.createHash("sha1").update(base + apiSecret).digest("hex");
+}
+
+/** HEAD on the delivery URL tells us whether a public id already exists. */
+async function assetExists(publicId) {
+  const res = await fetch(
+    `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicId}`,
+    { method: "HEAD" },
+  );
+  return res.ok;
 }
 
 /* ------------------------------------------------------------------ flow */
@@ -127,7 +137,7 @@ function sign(params, apiSecret) {
 async function main() {
   log("DYNAMIC · Cloudinary bağlantısı\n");
 
-  let apiSecret = argValue("--secret");
+  let apiSecret = argValue("--secret") ?? process.env.CLOUDINARY_SECRET;
   if (!apiSecret) {
     apiSecret = (await askSecret("Cloudinary API secret (görünmez): ")).trim();
   }
@@ -159,15 +169,16 @@ async function main() {
   fs.writeFileSync(DEV_VARS, devVars.endsWith("\n") ? devVars : `${devVars}\n`);
   log(`✓ .dev.vars yazıldı (CLOUDINARY_URL + MEDIA_UPLOAD_TOKEN)`);
 
-  // 3 — worker secrets
+  // 3 — worker secrets (wrangler is called through node directly: no shell,
+  // no npx shim, and the secret never appears in a command line)
+  const wranglerBin = path.join(ROOT, "node_modules", "wrangler", "bin", "wrangler.js");
   for (const [key, value] of [
     ["CLOUDINARY_URL", `cloudinary://${API_KEY}:${apiSecret}@${CLOUD_NAME}`],
     ["MEDIA_UPLOAD_TOKEN", token],
   ]) {
-    const result = spawnSync("npx", ["wrangler", "secret", "put", key], {
+    const result = spawnSync(process.execPath, [wranglerBin, "secret", "put", key], {
       input: `${value}\n`,
       encoding: "utf8",
-      shell: true,
     });
     if (result.status !== 0) {
       fail(`wrangler secret put ${key} başarısız: ${(result.stderr || result.stdout || "").slice(0, 300)}`);
@@ -183,7 +194,8 @@ async function main() {
     allowed_formats: "jpg,jpeg,png,webp,avif,svg",
     max_file_size: MAX_FILE_SIZE,
     tags: ["dynamic", "media"],
-    context: { alt: "dynamic", caption: "dynamic" },
+    // Cloudinary expects the context as "key=value|key=value", not an object.
+    context: "alt=dynamic|caption=dynamic",
   };
   const created = await api("/upload_presets", apiSecret, {
     method: "POST",
@@ -193,7 +205,8 @@ async function main() {
     log(`✓ Upload preset oluşturuldu: ${UPLOAD_PRESET}`);
   } else {
     const body = await created.json().catch(() => ({}));
-    const exists = body?.error?.message?.toLowerCase().includes("already exists");
+    const message = (body?.error?.message ?? "").toLowerCase();
+    const exists = message.includes("already exists") || message.includes("already been taken");
     const updated = exists
       ? await api(`/upload_presets/${UPLOAD_PRESET}`, apiSecret, {
           method: "PUT",
@@ -201,13 +214,17 @@ async function main() {
         })
       : null;
     if (updated?.ok) log(`✓ Upload preset güncellendi: ${UPLOAD_PRESET}`);
-    else fail(`Upload preset işlemi başarısız: ${JSON.stringify(body).slice(0, 200)}`);
+    else {
+      // Not fatal: the preset only matters for direct browser uploads, the
+      // signed upload endpoints above are already working.
+      log(`• Upload preset oluşturulamadı: ${JSON.stringify(body).slice(0, 160)}`);
+      log("  (yükleme uçları imzalı çalıştığı için bağlantı yine de tamam)");
+    }
   }
 
   // 5 — brand assets
   for (const asset of BRAND_ASSETS) {
-    const check = await api(`/resources/image/${asset.publicId}`, apiSecret);
-    if (check.ok) {
+    if (await assetExists(asset.publicId)) {
       log(`✓ ${asset.publicId} — medya kütüphanesinde`);
       continue;
     }
@@ -217,12 +234,11 @@ async function main() {
       continue;
     }
     const timestamp = Math.floor(Date.now() / 1000);
-    const params = { folder: BRAND_FOLDER, timestamp, public_id: asset.publicId };
+    const params = { public_id: asset.publicId, timestamp };
     const form = new FormData();
     form.append("file", new Blob([fs.readFileSync(file)]), asset.file);
     form.append("api_key", API_KEY);
     form.append("timestamp", String(timestamp));
-    form.append("folder", BRAND_FOLDER);
     form.append("public_id", asset.publicId);
     form.append("signature", sign(params, apiSecret));
     const upload = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
