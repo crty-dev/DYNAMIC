@@ -20,9 +20,14 @@
   // Public Cloudinary values. The API secret lives in a Worker secret:
   //   npx wrangler secret put CLOUDINARY_URL
   //   npx wrangler secret put MEDIA_UPLOAD_TOKEN
+  //   npx wrangler secret put ADMIN_API_KEY
   "vars": {
     "CLOUDINARY_CLOUD_NAME": "di9c12gg6",
     "CLOUDINARY_UPLOAD_KEY": "657115753521274"
+  },
+  // Daily retention job: drops events older than the site retention window.
+  "triggers": {
+    "crons": ["0 3 * * *"]
   },
   "observability": {
     "enabled": true
