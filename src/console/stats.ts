@@ -96,8 +96,10 @@ export function useAnalytics(range: StatsRange) {
   return useQuery({
     queryKey: ["analytics", range],
     queryFn: () => getJson<AnalyticsSummary>(`/api/analytics/summary?range=${range}`),
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    // The summary runs a dozen D1 queries; the Worker caches it for a minute.
+    // Polling every minute keeps the Free plan row reads predictable.
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 }
 
@@ -105,8 +107,10 @@ export function useRum(range: StatsRange) {
   return useQuery({
     queryKey: ["rum", range],
     queryFn: () => getJson<RumSummary>(`/api/rum/summary?range=${range}`),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
+    // The percentile scan is the most expensive query in the app; the Worker
+    // caches it for five minutes, so the console polls less often.
+    refetchInterval: 120_000,
+    staleTime: 60_000,
   });
 }
 

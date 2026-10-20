@@ -3,10 +3,18 @@
  *
  * The cloud name and the upload key are public by design (the browser needs
  * them for a signed upload); the API secret never leaves the Worker.
+ *
+ * Self-hosting note: the asset ids below point at the media library of the
+ * original project. A fork should either point them at its own Cloudinary
+ * account (edit this file) or build with VITE_CLOUDINARY_DISABLED=1, which
+ * keeps every image on its own origin (the bundled WebP files) and never
+ * contacts a third party.
  */
+export const CLOUDINARY_DISABLED =
+  import.meta.env?.VITE_CLOUDINARY_DISABLED === "1";
 
-export const CLOUDINARY_CLOUD_NAME = "di9c12gg6";
-export const CLOUDINARY_UPLOAD_KEY = "657115753521274";
+export const CLOUDINARY_CLOUD_NAME = import.meta.env?.VITE_CLOUDINARY_CLOUD ?? "di9c12gg6";
+export const CLOUDINARY_UPLOAD_KEY = import.meta.env?.VITE_CLOUDINARY_UPLOAD_KEY ?? "657115753521274";
 
 export const CLOUDINARY_DELIVERY_BASE = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 

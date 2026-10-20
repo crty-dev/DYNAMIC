@@ -16,6 +16,8 @@ type Bindings = {
   MEDIA_UPLOAD_TOKEN?: string;
   /** Bearer token that guards every /api/admin/* route. */
   ADMIN_API_KEY?: string;
+  /** Maximum number of self-serve sites (protects the D1 write quota). */
+  MAX_SITES?: string;
 };
 
 type Variables = {
@@ -285,7 +287,9 @@ function jsonSize(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).length;
 }
 
-/** Keep only safe, short props — personal data never reaches D1. */
+/**
+ * Keep only safe, short props — personal data never reaches D1.
+ */
 function cleanProps(props: Record<string, unknown> | undefined): Record<string, unknown> | null {
   if (!props) return null;
   const out: Record<string, unknown> = {};
@@ -301,6 +305,42 @@ function cleanProps(props: Record<string, unknown> | undefined): Record<string, 
       out[name] = value;
     } else if (typeof value === "boolean") {
       out[name] = value;
+    }
+    count += 1;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * Sanitize a web-vitals attribution blob.
+ *
+ * The library hands us element snippets (outerHTML) and page URLs. An element
+ * snippet can contain an attribute value ("value=...") and a URL can carry
+ * query parameters, so both are stripped before storage.
+ */
+function cleanAttribution(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null;
+  const out: Record<string, unknown> = {};
+  let count = 0;
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (count >= 8) break;
+    const name = key.trim().slice(0, 40);
+    if (!name) continue;
+    if (PII_KEYS.has(name.toLowerCase())) continue;
+
+    if (typeof raw === "string") {
+      let text = raw;
+      // Drop attribute values: value="secret", data-user="jane@x.com" → value=""
+      text = text.replace(/=\s*"[^"]*"/g, '=""').replace(/=\s*'[^']*'/g, "=''");
+      // Drop query strings and fragments from URLs.
+      text = text.split("?")[0].split("#")[0];
+      out[name] = text.slice(0, 200);
+    } else if (typeof raw === "number" && Number.isFinite(raw)) {
+      out[name] = raw;
+    } else if (typeof raw === "boolean") {
+      out[name] = raw;
+    } else {
+      continue;
     }
     count += 1;
   }
@@ -447,8 +487,22 @@ async function siteById(db: D1Database, id: number): Promise<Site | null> {
     .first<Site>();
 }
 
-/** v1 is self-serve: the first valid collect from a new origin creates its site. */
-async function registerSite(db: D1Database, origin: string): Promise<{ site: Site; created: boolean }> {
+/**
+ * v1 is self-serve: the first valid collect from a new origin creates its site.
+ * The number of sites is capped so the public endpoint cannot be used to fill
+ * the D1 write quota with throwaway sites.
+ */
+async function registerSite(
+  db: D1Database,
+  origin: string,
+  maxSites = 500,
+): Promise<{ site: Site; created: boolean }> {
+  const count = await db.prepare("SELECT COUNT(*) AS n FROM sites").first<{ n: number }>();
+  if ((count?.n ?? 0) >= maxSites) {
+    const error = new Error("site_limit_reached") as Error & { code?: string };
+    error.code = "site_limit_reached";
+    throw error;
+  }
   const host = new URL(origin).hostname.slice(0, 253);
   const publicId = `site_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
   const result = await db
@@ -463,12 +517,16 @@ async function registerSite(db: D1Database, origin: string): Promise<{ site: Sit
 
 type ResolveResult =
   | { site: Site; created: boolean }
-  | { error: "site_required" | "unknown_site" | "origin_mismatch"; status: 400 | 403 | 404 };
+  | {
+      error: "site_required" | "unknown_site" | "origin_mismatch" | "site_limit_reached";
+      status: 400 | 403 | 404 | 429;
+    };
 
 async function resolveSite(
   db: D1Database,
   requestOrigin: string | null,
   siteKey: string | undefined,
+  maxSites = 500,
 ): Promise<ResolveResult> {
   if (siteKey) {
     const key = siteKey.trim();
@@ -486,13 +544,13 @@ async function resolveSite(
 
     const byOrigin = await siteByOrigin(db, keyOrigin);
     if (byOrigin) return { site: byOrigin, created: false };
-    return registerSite(db, keyOrigin);
+    return registerSite(db, keyOrigin, maxSites);
   }
 
   if (!requestOrigin) return { error: "site_required", status: 400 };
   const existing = await siteByOrigin(db, requestOrigin);
   if (existing) return { site: existing, created: false };
-  return registerSite(db, requestOrigin);
+  return registerSite(db, requestOrigin, maxSites);
 }
 
 /* ==========================================================================
@@ -755,8 +813,19 @@ app.post("/api/collect", async (c) => {
   }
 
   try {
-    const resolved = await resolveSite(c.env.DB, c.get("requestOrigin"), siteKey);
+    const maxSites = Number(c.env.MAX_SITES ?? 500);
+    const resolved = await resolveSite(c.env.DB, c.get("requestOrigin"), siteKey, maxSites);
     if ("error" in resolved) {
+      if (resolved.error === "site_limit_reached") {
+        return c.json(
+          {
+            error: "site_limit_reached",
+            message: "This deployment does not accept new sites any more.",
+            accepted: 0,
+          },
+          429,
+        );
+      }
       return c.json({ error: resolved.error }, resolved.status);
     }
     const site = resolved.site;
@@ -910,6 +979,16 @@ app.post("/api/collect", async (c) => {
       failed === 0 ? 202 : 207,
     );
   } catch (error) {
+    if ((error as { code?: string })?.code === "site_limit_reached") {
+      return c.json(
+        {
+          error: "site_limit_reached",
+          message: "This deployment does not accept new sites any more.",
+          accepted: 0,
+        },
+        429,
+      );
+    }
     console.error("collect_failed", error);
     // Nothing was written — say so instead of pretending the batch succeeded.
     return c.json({ error: "storage_error", accepted: 0 }, 500);
@@ -920,7 +999,7 @@ app.post("/api/collect", async (c) => {
 function attributionFor(event: IncomingEvent): string | null | "too_large" {
   const payload =
     event.type === "vital"
-      ? event.attribution
+      ? cleanAttribution(event.attribution)
       : event.type === "event"
         ? cleanProps(event.props ?? event.attribution)
         : undefined;
@@ -933,24 +1012,57 @@ function attributionFor(event: IncomingEvent): string | null | "too_large" {
    Analytics reports
    ========================================================================== */
 
-type ReportSite = { site: Site | null; error?: string };
+type ReportSite = { site: Site | null; error?: "unknown_site" | "site_required" | "origin_mismatch" };
 
 /** Resolve the site for a read-only report without ever creating one. */
+/**
+ * Resolve the site for a read-only report.
+ *
+ * Isolation: a site key only unlocks its own origin. Without a matching
+ * origin the request is refused (403) — otherwise anyone who learns a site
+ * id could read another tenant's traffic. Requests without an origin (server
+ * to server) may not use the `site` parameter at all.
+ */
 async function reportSite(c: Context<AppEnv>): Promise<ReportSite> {
+  const requestOrigin = c.get("requestOrigin");
   const siteKey = c.req.query("site");
   if (siteKey) {
-    const byKey = await siteByKey(c.env.DB, siteKey.trim());
-    if (byKey) return { site: byKey };
-    const origin = siteKeyToOrigin(siteKey.trim(), c.get("requestOrigin"));
+    const key = siteKey.trim();
+    const byKey = await siteByKey(c.env.DB, key);
+    if (byKey) {
+      if (!requestOrigin || byKey.origin !== requestOrigin) {
+        return { site: null, error: "origin_mismatch" };
+      }
+      return { site: byKey };
+    }
+    const origin = siteKeyToOrigin(key, requestOrigin);
     if (origin) {
       const byOrigin = await siteByOrigin(c.env.DB, origin);
-      if (byOrigin) return { site: byOrigin };
+      if (byOrigin) {
+        if (!requestOrigin || byOrigin.origin !== requestOrigin) {
+          return { site: null, error: "origin_mismatch" };
+        }
+        return { site: byOrigin };
+      }
     }
     return { site: null, error: "unknown_site" };
   }
-  const origin = c.get("requestOrigin");
-  if (!origin) return { site: null, error: "site_required" };
-  return { site: await siteByOrigin(c.env.DB, origin) };
+  if (!requestOrigin) return { site: null, error: "site_required" };
+  return { site: await siteByOrigin(c.env.DB, requestOrigin) };
+}
+
+/** A report may not cross an origin boundary. */
+function reportError(c: Context<AppEnv>, error: string | undefined) {
+  if (error === "origin_mismatch") {
+    return c.json({ error: "origin_mismatch" }, 403);
+  }
+  return null;
+}
+
+/** Resolve the report site and turn an isolation failure into a 403. */
+async function resolveReportSite(c: Context<AppEnv>): Promise<{ site: Site | null; response?: Response }> {
+  const resolved = await reportSite(c);
+  return { site: resolved.site, response: reportError(c, resolved.error) ?? undefined };
 }
 
 function emptySeries(buckets: number, bucketMs: number, from: number) {
@@ -978,8 +1090,8 @@ app.get("/api/analytics/summary", async (c) => {
   const buckets = bucketCount(range);
   const now = Date.now();
   const from = now - windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
 
   if (!site) {
     return c.json({
@@ -999,6 +1111,16 @@ app.get("/api/analytics/summary", async (c) => {
       countries: [],
       realtime: { events: 0, activeSessions: 0, topPages: [] },
     });
+  }
+
+  // The summary runs a dozen queries, so it is cached for a minute per data
+  // centre instead of being recomputed on every console poll.
+  // `?fresh=1` bypasses the cache (ops / tests).
+  const cache = caches.default;
+  const cacheKey = new Request(`https://dynamic.internal/api/analytics/${site.id}/${range}`);
+  if (c.req.query("fresh") !== "1") {
+    const hit = await cache.match(cacheKey);
+    if (hit) return hit;
   }
 
   const [metricRows, sessionRows, seriesRows, sessionSeries, pageRows, referrerRows, campaignRows, deviceRows, goalRows, customRows, countryRows, liveCount, liveSessions, livePages] =
@@ -1123,7 +1245,7 @@ app.get("/api/analytics/summary", async (c) => {
     series[index].visitors = row.n;
   }
 
-  return c.json({
+  const payload = {
     ok: true,
     range,
     generatedAt: now,
@@ -1142,7 +1264,11 @@ app.get("/api/analytics/summary", async (c) => {
       activeSessions: liveSessions.results[0]?.n ?? 0,
       topPages: livePages.results,
     },
-  });
+  };
+  const result = c.json(payload, 200);
+  result.headers.set("Cache-Control", "public, max-age=60");
+  await cache.put(cacheKey, result.clone());
+  return result;
 });
 
 app.get("/api/analytics/timeseries", async (c) => {
@@ -1151,8 +1277,8 @@ app.get("/api/analytics/timeseries", async (c) => {
   const buckets = bucketCount(range);
   const now = Date.now();
   const from = now - windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) {
     return c.json({ ok: true, range, series: emptySeries(buckets, bucketMs, from) });
   }
@@ -1193,8 +1319,8 @@ app.get("/api/analytics/pages", async (c) => {
   const limit = parseLimit(c.req.query("limit"), 25, 100);
   const now = Date.now();
   const from = now - RANGES[range].windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) return c.json({ ok: true, range, pages: [] });
 
   const { results } = await c.env.DB.prepare(
@@ -1212,8 +1338,8 @@ app.get("/api/analytics/referrers", async (c) => {
   const limit = parseLimit(c.req.query("limit"), 25, 100);
   const now = Date.now();
   const from = now - RANGES[range].windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) return c.json({ ok: true, range, referrers: [], campaigns: [] });
 
   const [referrerRows, campaignRows] = await Promise.all([
@@ -1241,8 +1367,8 @@ app.get("/api/analytics/devices", async (c) => {
   const range = resolveRange(c.req.query("range"));
   const now = Date.now();
   const from = now - RANGES[range].windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) return c.json({ ok: true, range, devices: [], browsers: [], os: [] });
 
   const { results } = await c.env.DB.prepare(
@@ -1273,8 +1399,8 @@ app.get("/api/analytics/events", async (c) => {
   const name = c.req.query("name");
   const now = Date.now();
   const from = now - RANGES[range].windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) return c.json({ ok: true, range, events: [] });
 
   const statement = name
@@ -1302,8 +1428,8 @@ app.get("/api/analytics/goals", async (c) => {
   const range = resolveRange(c.req.query("range"));
   const now = Date.now();
   const from = now - RANGES[range].windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) return c.json({ ok: true, range, goals: [] });
 
   const [goalRows, definitions] = await Promise.all([
@@ -1333,8 +1459,8 @@ app.get("/api/analytics/goals", async (c) => {
 app.get("/api/analytics/realtime", async (c) => {
   const now = Date.now();
   const since = now - 30 * 60_000;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) {
     return c.json({ ok: true, window: "30m", events: 0, activeSessions: 0, topPages: [] });
   }
@@ -1368,8 +1494,8 @@ app.get("/api/analytics/sessions", async (c) => {
   const range = resolveRange(c.req.query("range"));
   const now = Date.now();
   const from = now - RANGES[range].windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) {
     return c.json({ ok: true, range, sessions: 0, visitors: 0, avgPagesPerSession: 0, bounceRate: 0 });
   }
@@ -1401,6 +1527,13 @@ app.get("/api/analytics/sessions", async (c) => {
    RUM reports
    ========================================================================== */
 
+/**
+ * Percentile window size. The scan is bounded to the most recent N samples so
+ * a busy site cannot burn the daily D1 row budget with one dashboard poll.
+ * When the cap is hit the response says so (`sampled: true`).
+ */
+const RUM_SCAN_LIMIT = 20000;
+
 type VitalStats = {
   metric: string;
   samples: number;
@@ -1411,6 +1544,7 @@ type VitalStats = {
   needsImprovement: number;
   poor: number;
   sufficient: boolean;
+  sampled: boolean;
   note?: string;
 };
 
@@ -1426,22 +1560,16 @@ async function vitalStats(
   from: number,
   now: number,
 ): Promise<VitalStats> {
-  const [ratingRows, percentileRows] = await Promise.all([
-    db.prepare(
-      `SELECT rating, COUNT(*) AS n FROM events
-        WHERE site_id = ? AND metric = ? AND ts >= ? AND ts < ? AND value IS NOT NULL
-        GROUP BY rating`,
-    )
-      .bind(siteId, metric, from, now)
-      .all<{ rating: string | null; n: number }>(),
-    db.prepare(
+  const { results } = await db
+    .prepare(
       `WITH vals AS (
-         SELECT value FROM events
+         SELECT value, rating FROM events
           WHERE site_id = ? AND metric = ? AND ts >= ? AND ts < ? AND value IS NOT NULL
-          ORDER BY value
+          ORDER BY ts DESC
+          LIMIT ?
        ),
        ranked AS (
-         SELECT value,
+         SELECT value, rating,
                 ROW_NUMBER() OVER (ORDER BY value) AS rn,
                 COUNT(*) OVER () AS cnt
            FROM vals
@@ -1449,32 +1577,46 @@ async function vitalStats(
        SELECT MAX(cnt) AS samples,
               AVG(value) AS avg,
               MAX(CASE WHEN rn = CAST((cnt - 1) * 0.50 AS INT) + 1 THEN value END) AS p50,
-              MAX(CASE WHEN rn = CAST((cnt - 1) * 0.75 AS INT) + 1 THEN value END) AS p75
+              MAX(CASE WHEN rn = CAST((cnt - 1) * 0.75 AS INT) + 1 THEN value END) AS p75,
+              SUM(CASE WHEN rating = 'good' THEN 1 ELSE 0 END) AS good,
+              SUM(CASE WHEN rating = 'needs-improvement' THEN 1 ELSE 0 END) AS ni,
+              SUM(CASE WHEN rating = 'poor' THEN 1 ELSE 0 END) AS poor
          FROM ranked`,
     )
-      .bind(siteId, metric, from, now)
-      .all<{ samples: number; avg: number | null; p50: number | null; p75: number | null }>(),
-  ]);
+    .bind(siteId, metric, from, now, RUM_SCAN_LIMIT)
+    .all<{
+      samples: number;
+      avg: number | null;
+      p50: number | null;
+      p75: number | null;
+      good: number | null;
+      ni: number | null;
+      poor: number | null;
+    }>();
 
-  const row = percentileRows.results[0];
+  const row = results[0];
   const samples = row?.samples ?? 0;
-  const rating = (name: string) =>
-    ratingRows.results.find((entry) => entry.rating === name)?.n ?? 0;
-
   const sufficient = samples >= MIN_P75_SAMPLES;
+  const sampled = samples >= RUM_SCAN_LIMIT;
+
   return {
     metric,
     samples,
     avg: row?.avg ?? null,
     p50: sufficient ? row?.p50 ?? null : null,
     p75: sufficient ? row?.p75 ?? null : null,
-    good: rating("good"),
-    needsImprovement: rating("needs-improvement"),
-    poor: rating("poor"),
+    good: row?.good ?? 0,
+    needsImprovement: row?.ni ?? 0,
+    poor: row?.poor ?? 0,
     sufficient,
-    ...(sufficient
-      ? {}
-      : { note: `At least ${MIN_P75_SAMPLES} samples are needed for a percentile; ${samples} collected.` }),
+    sampled,
+    ...(sampled
+      ? {
+          note: `Computed over the most recent ${RUM_SCAN_LIMIT} samples (older ones are not scanned).`,
+        }
+      : sufficient
+        ? {}
+        : { note: `At least ${MIN_P75_SAMPLES} samples are needed for a percentile; ${samples} collected.` }),
   };
 }
 
@@ -1482,8 +1624,8 @@ app.get("/api/rum/summary", async (c) => {
   const range = resolveRange(c.req.query("range"));
   const now = Date.now();
   const from = now - RANGES[range].windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) {
     return c.json({
       ok: true,
@@ -1498,22 +1640,38 @@ app.get("/api/rum/summary", async (c) => {
         needsImprovement: 0,
         poor: 0,
         sufficient: false,
+        sampled: false,
         note: "No data yet.",
       })),
     });
+  }
+
+  // The percentile scan is the most expensive query in the app, so the result
+  // is cached for five minutes (per data centre) instead of being recomputed
+  // on every console poll. `?fresh=1` bypasses the cache.
+  const cache = caches.default;
+  const cacheKey = new Request(`https://dynamic.internal/api/rum/${site.id}/${range}`);
+  if (c.req.query("fresh") !== "1") {
+    const hit = await cache.match(cacheKey);
+    if (hit) return hit;
   }
 
   const metrics = await Promise.all(
     VITAL_METRICS.map((metric) => vitalStats(c.env.DB, site.id, metric, from, now)),
   );
 
-  return c.json({
+  const payload = {
     ok: true,
     range,
     generatedAt: now,
     minSamples: MIN_P75_SAMPLES,
+    sampleLimit: RUM_SCAN_LIMIT,
     metrics,
-  });
+  };
+  const result = c.json(payload, 200);
+  result.headers.set("Cache-Control", "public, max-age=300");
+  await cache.put(cacheKey, result.clone());
+  return result;
 });
 
 app.get("/api/rum/timeseries", async (c) => {
@@ -1523,8 +1681,8 @@ app.get("/api/rum/timeseries", async (c) => {
   const buckets = bucketCount(range);
   const now = Date.now();
   const from = now - windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) return c.json({ ok: true, range, metric, series: [] });
 
   const { results } = await c.env.DB.prepare(
@@ -1569,8 +1727,8 @@ app.get("/api/rum/pages", async (c) => {
   const limit = parseLimit(c.req.query("limit"), 15, 50);
   const now = Date.now();
   const from = now - RANGES[range].windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) return c.json({ ok: true, range, metric, pages: [] });
 
   const { results } = await c.env.DB.prepare(
@@ -1609,8 +1767,8 @@ app.get("/api/rum/devices", async (c) => {
   const metric = (c.req.query("metric") ?? "LCP").toUpperCase();
   const now = Date.now();
   const from = now - RANGES[range].windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) return c.json({ ok: true, range, metric, devices: [] });
 
   const { results } = await c.env.DB.prepare(
@@ -1649,6 +1807,11 @@ app.get("/api/rum/devices", async (c) => {
    ========================================================================== */
 
 app.use("/api/admin/*", async (c, next) => {
+  // The admin surface is token protected; the limiter keeps a stolen or
+  // guessed token from being brute forced.
+  const limit = rateLimit(`admin:${clientIp(c) || "unknown"}`, 30, 60_000);
+  if (!limit.allowed) return tooManyRequests(c, limit.retryAfter);
+
   const expected = c.env.ADMIN_API_KEY;
   if (!expected) return c.json({ error: "admin_not_configured" }, 503);
   const header = c.req.header("authorization") ?? "";
@@ -1663,10 +1826,13 @@ app.use("/api/admin/*", async (c, next) => {
 });
 
 app.get("/api/admin/sites", async (c) => {
+  // The counters are capped estimates: a full COUNT over every event of every
+  // site would read millions of rows and burn the daily D1 budget.
   const { results } = await c.env.DB.prepare(
     `SELECT s.id, s.public_id, s.name, s.origin, s.created_at, s.retention_days, s.daily_event_limit,
-            (SELECT COUNT(*) FROM events e WHERE e.site_id = s.id) AS events,
-            (SELECT COUNT(*) FROM sessions ss WHERE ss.site_id = s.id) AS sessions
+            s.events_today, s.counter_day,
+            (SELECT COUNT(*) FROM (SELECT 1 FROM events e WHERE e.site_id = s.id LIMIT 1000)) AS events_estimate,
+            (SELECT COUNT(*) FROM (SELECT 1 FROM sessions ss WHERE ss.site_id = s.id LIMIT 1000)) AS sessions_estimate
        FROM sites s ORDER BY s.created_at DESC LIMIT 100`,
   ).all();
   return c.json({ ok: true, sites: results });
@@ -1833,7 +1999,7 @@ app.get("/api/admin/sites/:id/export", async (c) => {
       .all(),
     c.env.DB.prepare(
       `SELECT ts, metric, value, rating, path, country, ua, session_id, metric_id, goal,
-              referrer, utm_source, utm_medium, utm_campaign, device, browser, os
+              attribution, referrer, utm_source, utm_medium, utm_campaign, device, browser, os
          FROM events WHERE site_id = ? ORDER BY ts LIMIT ? OFFSET ?`,
     )
       .bind(site.id, limit, offset)
@@ -2056,8 +2222,8 @@ app.get("/api/stats", async (c) => {
   const range = resolveRange(c.req.query("range"));
   const now = Date.now();
   const from = now - RANGES[range].windowMs;
-  const resolved = await reportSite(c);
-  const site = resolved.site;
+  const { site, response } = await resolveReportSite(c);
+  if (response) return response;
   if (!site) {
     return c.json({
       ok: true,

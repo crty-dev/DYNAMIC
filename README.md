@@ -62,14 +62,26 @@ npm run dev                         # http://localhost:5173
 | Kaynak | Free limit | DYNAMIC'in kullanımı |
 | --- | --- | --- |
 | Workers istekleri | 100.000 / gün | SDK sayfa başına 1 istek (5 sn'de bir toplu gönderim). |
-| D1 satır okuma | 5M / gün | Her sorgu `site_id` + zaman aralığı ile sınırlı. |
-| D1 satır yazma | 100.000 / gün | 1 event = 1 satır; site başına günlük kota 25.000. |
+| D1 satır okuma | 5M / gün | Her sorgu `site_id` + zaman aralığı ile sınırlı; p75 taraması 20.000 örnekle sınırlı; raporlar önbelleklenir. |
+| D1 satır yazma | 100.000 / gün | 1 event = 1 satır; site başına günlük kota 25.000; toplam site sayısı `MAX_SITES` ile sınırlı. |
 | D1 depolama | 5 GB | 30 günlük saklama. |
 | Static Assets | ücretsiz | `dist/` ≈ 900 KB. |
 | Cron | 5 | 1 (günlük retention temizliği). |
 | R2 | 10 GB | **Kullanılmıyor** (medya Cloudinary'de). |
 
 Tablo ve self-hosting adımları: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+**Ortam değişkenleri**
+
+| Değişken | Nerede | Açıklama |
+| --- | --- | --- |
+| `ADMIN_API_KEY` | Worker secret | `/api/admin/*` bearer token'ı (zorunlu). |
+| `MEDIA_UPLOAD_TOKEN` | Worker secret | Medya yükleme uçlarının token'ı. |
+| `CLOUDINARY_URL` | Worker secret | `cloudinary://<key>:<secret>@<cloud>`. |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_UPLOAD_KEY` | `wrangler.jsonc` → `vars` | Public değerler. |
+| `MAX_SITES` | `wrangler.jsonc` → `vars` | Self-serve site sayısı sınırı (varsayılan 500). |
+| `VITE_CLOUDINARY_DISABLED` | build ortamı | `1` ise görseller kendi origin'inden (yerel WebP) servis edilir — **fork'lar için önerilir**. |
+| `VITE_CLOUDINARY_CLOUD` | build ortamı | Fork'un kendi Cloudinary cloud adı. |
 
 ## Açık kaynak
 
@@ -192,6 +204,15 @@ Kaynak: `src/sdk/dynamic.ts` → `npm run build:sdk` → `public/js/dynamic.js`.
 
 Analytics ve RUM uçları **okuma** içindir; ingest'ten tamamen ayrıdır ve hiçbiri
 veri yazmaz. Tüm sorgular `site_id` + zaman aralığı ile sınırlıdır.
+
+**İzolasyon:** bir site anahtarı yalnızca kendi origin'ini açar. Başka bir origin
+(veya origin'siz bir istek) `?site=` ile başka bir sitenin verisini okumaya
+çalışırsa `403 origin_mismatch` alır. Site anahtarı olmadan istekler kendi
+origin'ine bağlıdır.
+
+**Önbellek:** ağır raporlar (`/api/analytics/summary` 60 sn, `/api/rum/summary`
+5 dk) Worker Cache API ile veri merkezi başına önbelleğe alınır — konsol her
+dakika yoklasa bile D1 satır okuması patlamaz. Taze veri için `?fresh=1` ekleyin.
 
 ### Analytics
 

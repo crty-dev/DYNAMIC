@@ -167,10 +167,11 @@ const HWF_CSS = `
   font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer;
   background-image: linear-gradient(currentColor, currentColor); background-size: 0% 1px;
   background-repeat: no-repeat; background-position: 0 100%; transition: opacity .25s ease, background-size .35s cubic-bezier(.2,.7,.1,1);
-  /* Touch target: the visible type stays 10.5px, the hit area is padded out
-     to a comfortable size without moving the baseline. */
+  /* Touch target: the type stays 10.5px, the hit area is padded to a comfortable
+     size. No negative margin here - overlapping targets fail the target-size
+     audit, so the extra space is simply kept. */
   display: inline-flex; align-items: center; min-height: 24px; min-width: 24px;
-  padding: 8px 6px; margin: -8px -6px;
+  padding: 8px 6px;
 }
 .hwf-col a:hover, .hwf-up:hover { opacity: 1; background-size: 100% 1px; }
 .hwf-col a:focus-visible, .hwf-up:focus-visible { outline: 1px solid currentColor; outline-offset: 3px; opacity: 1; }

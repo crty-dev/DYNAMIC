@@ -77,7 +77,15 @@ ve `npx wrangler r2 bucket create dynamic-media` komutu.
 | `CLOUDINARY_URL` | **secret** | hayır | `cloudinary://<key>:<secret>@<cloud>`. Medya teslimi/yükleme için. |
 | `MEDIA_UPLOAD_TOKEN` | **secret** | hayır | `POST /api/media/upload` ve `/signature` uçlarının bearer token'ı. |
 | `ADMIN_API_KEY` | **secret` | **evet** | `/api/admin/*` uçlarının bearer token'ı. Tanımlı değilse admin uçları `503` döner. |
+| `MAX_SITES` | `wrangler.jsonc` → `vars` | hayır | Self-serve site sayısı sınırı (varsayılan 500); public ingestion ucu ile geçici site açılamaz. |
 | `DATABASE_URL` | — | hayır | Kullanılmaz (D1 binding kullanılır). |
+
+İstemci (build) tarafı değişkenleri — Vite `VITE_` ile ön eki olmadan gömülür:
+
+| Değişken | Açıklama |
+| --- | --- |
+| `VITE_CLOUDINARY_DISABLED=1` | Görselleri Cloudinary'ye gitirmeden kendi origin'inden (yerel WebP) servis eder. **Fork'lar için önerilir.** |
+| `VITE_CLOUDINARY_CLOUD` | Fork'un kendi Cloudinary cloud adı. |
 
 Örnek dosya: [`.dev.vars.example`](../.dev.vars.example) (yerel) ve
 `wrangler.jsonc` → `vars` (public değerler). **Gerçek secret'ları repoya

@@ -75,7 +75,7 @@ function collect(events, options = {}) {
 }
 
 function summary(origin = ORIGIN, range = "7d") {
-  return fetch(`${BASE}/api/analytics/summary?range=${range}`, {
+  return fetch(`${BASE}/api/analytics/summary?range=${range}&fresh=1`, {
     headers: { origin, referer: `${origin}/` },
   });
 }
@@ -211,6 +211,37 @@ describe("DYNAMIC API", () => {
     assert.deepEqual(body.topPages, []);
   });
 
+  it("refuses to read another site's data with a site key", async () => {
+    const own = await (await summary(ORIGIN)).json();
+    assert.ok(own.site, "the test site should exist");
+    const siteId = own.site.id;
+
+    // Same origin: allowed.
+    const allowed = await fetch(
+      `${BASE}/api/analytics/summary?range=7d&site=${siteId}`,
+      { headers: { origin: ORIGIN, referer: `${ORIGIN}/` } },
+    );
+    assert.equal(allowed.status, 200);
+
+    // Another origin: refused, no data leaks.
+    const denied = await fetch(
+      `${BASE}/api/analytics/summary?range=7d&site=${siteId}`,
+      { headers: { origin: OTHER_ORIGIN, referer: `${OTHER_ORIGIN}/` } },
+    );
+    assert.equal(denied.status, 403);
+    assert.equal((await denied.json()).error, "origin_mismatch");
+
+    // No origin at all (server to server): also refused.
+    const anonymous = await fetch(`${BASE}/api/analytics/summary?range=7d&site=${siteId}`);
+    assert.equal(anonymous.status, 403);
+
+    // The RUM endpoints use the same resolution.
+    const rumDenied = await fetch(`${BASE}/api/rum/summary?range=7d&site=${siteId}`, {
+      headers: { origin: OTHER_ORIGIN, referer: `${OTHER_ORIGIN}/` },
+    });
+    assert.equal(rumDenied.status, 403);
+  });
+
   it("refuses a site key that belongs to another origin", async () => {
     const other = await collect([{ type: "pageview", path: "/x" }], { origin: OTHER_ORIGIN });
     const otherSite = (await other.json()).site;
@@ -222,7 +253,7 @@ describe("DYNAMIC API", () => {
   });
 
   it("reports Web Vitals without inventing a percentile", async () => {
-    const response = await fetch(`${BASE}/api/rum/summary?range=7d`, {
+    const response = await fetch(`${BASE}/api/rum/summary?range=7d&fresh=1`, {
       headers: { origin: ORIGIN, referer: `${ORIGIN}/` },
     });
     assert.equal(response.status, 200);
@@ -231,6 +262,7 @@ describe("DYNAMIC API", () => {
     assert.equal(lcp.samples, 1);
     assert.equal(lcp.p75, null, "p75 must stay empty with too few samples");
     assert.equal(lcp.sufficient, false);
+    assert.equal(lcp.sampled, false);
     assert.match(lcp.note, /samples/i);
     assert.equal(lcp.good, 1);
   });
@@ -278,7 +310,7 @@ describe("DYNAMIC API", () => {
   it("answers with a clear error when the daily quota is reached", async () => {
     const sites = await (await admin("/sites")).json();
     const site = sites.sites.find((entry) => entry.origin === ORIGIN);
-    const used = Math.max(1, site.events);
+    const used = Math.max(1, site.events_estimate);
 
     const patch = await admin(`/sites/${site.id}`, {
       method: "PATCH",
@@ -341,6 +373,37 @@ describe("DYNAMIC API", () => {
     assert.equal((await gone.json()).site, null);
   });
 
+  it("strips personal data out of a web-vitals attribution", async () => {
+    await collect([
+      {
+        type: "vital",
+        metric: "LCP",
+        value: 900,
+        rating: "good",
+        id: "v_lcp_attribution",
+        path: "/pricing",
+        session: "s_test_session_0001",
+        attribution: {
+          url: "https://dynamic.crty-dev.com/pricing?email=jane@example.com&token=abc",
+          largestShiftTarget: '<input value="hunter2" name="card">',
+          element: '<form action="/pay" data-user="jane@example.com">',
+          timeToFirstByte: 120,
+        },
+      },
+    ]);
+
+    const sites = await (await admin("/sites")).json();
+    const site = sites.sites.find((entry) => entry.origin === ORIGIN);
+    const exported = await (await admin(`/sites/${site.id}/export?limit=200`)).json();
+    const vital = exported.events.find((event) => event.metric_id === "v_lcp_attribution");
+    assert.ok(vital, "the vital should be stored");
+    const stored = JSON.stringify(vital.attribution);
+    assert.ok(!stored.includes("hunter2"), "attribute values must be stripped");
+    assert.ok(!stored.includes("jane@example.com"), "emails must never be stored");
+    assert.ok(!stored.includes("abc"), "query strings must be stripped");
+    assert.ok(stored.includes("pricing"), "the path itself is kept");
+  });
+
   it("answers with 429 once the request rate is too high", async () => {
     // The in-isolate limiter is best effort, so a burst may be spread over
     // several isolates. What must always hold: a blocked request is a clear
@@ -358,5 +421,22 @@ describe("DYNAMIC API", () => {
     // Either the burst tripped the limiter or every request was rejected as
     // invalid — never a written event.
     assert.ok(limited >= 0);
+  });
+
+  it("rate limits the admin surface", async () => {
+    // A wrong token must be rejected; a burst of attempts must be limited.
+    let limited = 0;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const response = await fetch(`${BASE}/api/admin/sites`, {
+        headers: { authorization: "Bearer wrong-token-value-000" },
+      });
+      if (response.status === 429) {
+        limited += 1;
+        assert.equal((await response.json()).error, "rate_limited");
+      } else {
+        assert.equal(response.status, 401);
+      }
+    }
+    assert.ok(limited > 0, "the admin surface should be rate limited");
   });
 });

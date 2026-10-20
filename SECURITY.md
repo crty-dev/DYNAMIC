@@ -43,11 +43,11 @@ Bulgu doğrulanırsa, düzeltme `main` üzerine eklenir, sürüm çıkarılır v
 | Alan | Önlem |
 | --- | --- |
 | Yönetim API | `/api/admin/*` yolları `Authorization: Bearer <ADMIN_API_KEY>` ile korunur; anahtar yoksa uçlar `503` döner. |
-| Veri izolasyonu | Her sorgu `site_id` ile sınırlıdır; başka bir origin'in site anahtarı gönderilirse `403 origin_mismatch`. |
+| Veri izolasyonu | Her sorgu `site_id` ile sınırlıdır. Yazma yolunda **ve okuma yolunda** başka bir origin'in site anahtarı gönderilirse `403 origin_mismatch` (rapor uçları da `?site=` ile başka tenant'ın verisini okutamaz). |
 | Girdi doğrulama | Tüm ingest gövdeleri zod şemalarıyla doğrulanır; bilinmeyen alanlar reddedilir. |
 | Boyut sınırları | 64 event / istek, 128 KB gövde, 4 KB attribution, 8 prop, 200 karakter/prop değer. |
-| Hız sınırı | `/api/collect` 120 istek/dk (IP başına), rapor uçları 60 istek/dk; ayrıca sitenin günlük event kotası vardır (`429 quota_exceeded`). |
-| Sıfır gün | Toplama sırasında hiçbir kişisel veri yazılmaz: IP saklanmaz, çerez kullanılmaz, referrer yalnızca host olarak tutulur, özel event propları PII anahtarlarından arındırılır. |
+| Hız sınırı | `/api/collect` 120 istek/dk (IP başına), rapor uçları 60 istek/dk, `/api/admin/*` 30 istek/dk; ayrıca sitenin günlük event kotası (`429 quota_exceeded`) ve toplam site sınırı (`MAX_SITES`) vardır. |
+| Sıfır gün | Toplama sırasında hiçbir kişisel veri yazılmaz: IP saklanmaz, çerez kullanılmaz, referrer yalnızca host olarak tutulur, özel event propları **ve** web-vitals attribution'ı (HTML nitelik değerleri, query string) PII'den arındırılır. |
 | Oturum yönetimi | Parola yoktur. Yönetici erişimi tek bir bearer token ile sağlanır; token'ı `wrangler secret put ADMIN_API_KEY` ile tutun ve düzenli olarak değiştirin. |
 | Günlük veri | Web vitals raporlarında p75 yalnızca ≥20 örnek varsa hesaplanır; aksi halde `null` döner ve istatistik uydurulmaz. |
 | Loglar | Log satırları yalnızca hata sınıflarını ve site kimliklerini içerir; gövde, IP veya event içeriği yazılmaz. |
