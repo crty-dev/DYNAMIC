@@ -86,6 +86,97 @@ Admin/auth ve rate-limit koruması sıradaki adımlardır.
 
 ---
 
+## SDK
+
+`/js/dynamic.js` tek dosyalık, async ve bağımlılıksız bir snippet'tir
+(Google `web-vitals` paketlenmiş olarak gelir, çalışma anında üçüncü taraf
+isteği yok). Toplam **6.3 KB gzip**.
+
+```html
+<script
+  async
+  src="https://dynamic.crty-dev.com/js/dynamic.js"
+  data-site="site_xxxxxxxxxxxxxxxx"
+></script>
+```
+
+| API | Açıklama |
+| --- | --- |
+| `dynamic.track(name, props?, value?)` | Özel event (dönüşüm de olabilir). |
+| `dynamic.page()` | Elle sayfa görüntüleme (SPA gezinmesi otomatik gelir). |
+| `dynamic.flush()` | Kuyruğu hemen gönderir. |
+| `dynamic.consent.grant()` / `.deny()` | Açık izin / opt-out. |
+| `dynamic.optIn()` / `dynamic.optOut()` | `consent` için kısa yol. |
+| `dynamic.consent.status()` | `granted` \| `denied` \| `unknown`. |
+
+Davranış:
+
+- **SPA desteği:** `pushState` / `replaceState` / `popstate` izlenir, her
+  gezinmede yeni bir sayfa görüntülemesi gönderilir.
+- **Toplu gönderim:** varsayılan 32 event / istek, 5 saniyede bir otomatik
+  boşaltma; sayfa kapanırken `sendBeacon` kullanılır.
+- **Sınırlı retry:** yalnızca ağ hatası/5xx'te, en fazla 2 deneme; 4xx'te
+  batch düşürülür (sonsuz tekrar yok).
+- **Boyut sınırı:** 64 event / istek, 128 KB gövde, event başına 8 prop.
+- **Kişisel veri yok:** form/input değeri veya tuş vuruşu okunmaz; event
+  propları kişisel veri anahtarlarına karşı filtrelenir (e-posta, şifre, telefon,
+  adres, token, kart, IP, koordinat …).
+- **Çerez yok:** oturum id `sessionStorage`'da tutulur ve 30 dakika hareketsizlik
+  sonrası yenilenir. `Do Not Track` açıksa izin verilene kadar toplama yapılmaz.
+
+Kaynak: `src/sdk/dynamic.ts` → `npm run build:sdk` → `public/js/dynamic.js`.
+
+---
+
+## Rapor API'leri
+
+Analytics ve RUM uçları **okuma** içindir; ingest'ten tamamen ayrıdır ve hiçbiri
+veri yazmaz. Tüm sorgular `site_id` + zaman aralığı ile sınırlıdır.
+
+### Analytics
+
+| Uç | Açıklama |
+| --- | --- |
+| `GET /api/analytics/summary?range=24h\|7d\|30d\|90d` | Toplamlar, zaman serisi, en çok ziyaret edilen sayfalar, referrer'lar, UTM kampanyaları, cihaz/tarayıcı dağılımı, dönüşümler, ülkeler ve 30 dakikalık gerçek zamanlı görünüm. |
+| `GET /api/analytics/timeseries?range=` | Saatlik/günlük ziyaretçi + sayfa görüntüleme serisi. |
+| `GET /api/analytics/pages?range=&limit=` | Sayfa kırılımı. |
+| `GET /api/analytics/referrers?range=` | Referrer ve UTM kampanyası kırılımı. |
+| `GET /api/analytics/devices?range=` | Cihaz / tarayıcı / işletim sistemi kırılımı. |
+| `GET /api/analytics/events?range=&name=` | Özel event kırılımı. |
+| `GET /api/analytics/goals?range=` | Dönüşüm (goal) kırılımı + tanımlar. |
+| `GET /api/analytics/sessions?range=` | Oturum sayısı, sayfa/oturum, bounce oranı. |
+| `GET /api/analytics/realtime` | Son 30 dakika (maliyeti sınırlı sorgu). |
+
+### RUM
+
+| Uç | Açıklama |
+| --- | --- |
+| `GET /api/rum/summary?range=` | LCP/INP/CLS/FCP/TTFB için örnek sayısı, ortalama, p50, **p75** ve rating dağılımı. |
+| `GET /api/rum/timeseries?range=&metric=` | Günlük p75 serisi. |
+| `GET /api/rum/pages?range=&metric=` | Metrik bazlı en yavaş sayfalar. |
+| `GET /api/rum/devices?range=&metric=` | Metrik bazlı cihaz kırılımı. |
+
+p75 **SQL window function** ile hesaplanır (satır transferi yok). Örneklem
+sayısı 20'nin altındaysa p75 `null` döner ve kart "yeterli veri yok" der —
+uydurma istatistik üretilmez. Tüm değerler **gerçek kullanıcı verisidir**;
+lab (laboratuvar) verisi karıştırılmaz.
+
+### Admin API
+
+`/api/admin/*` uçları herkese açık ingest'ten ayrıdır ve
+`Authorization: Bearer <ADMIN_API_KEY>` ile korunur.
+
+| Uç | Açıklama |
+| --- | --- |
+| `GET /api/admin/sites` | Site listesi (olay/oturum sayılarıyla). |
+| `POST /api/admin/sites` | Site oluşturur (site key döner). |
+| `GET/PATCH /api/admin/sites/:id` | Site detayı; saklama süresi ve günlük kota ayarlanır. |
+| `GET/POST /api/admin/sites/:id/goals` | Dönüşüm tanımı (event adı veya path). |
+| `DELETE /api/admin/sites/:id/goals/:goal` | Dönüşüm siler. |
+| `POST /api/admin/sites/:id/purge` | Saklama süresinden eski verileri siler. |
+
+---
+
 ## Console (dashboard)
 
 `/dashboard` artık gerçek bir konsoldur: Flatlogic "react-dashboard" şablonunun
@@ -96,19 +187,63 @@ Vite + React 19 + TypeScript + Tailwind v4 + Cloudflare Workers üzerinde kalır
 
 | Rota | İçerik |
 | --- | --- |
-| `/dashboard` | KPI'lar (ziyaretçi, sayfa görüntüleme, event, ort. LCP), trafik grafiği, Web Vitals dağılımı, en çok ziyaret edilen sayfalar/ülkeler, canlı event akışı |
-| `/dashboard/analytics` | Ziyaretçi + sayfa görüntüleme trendi, sayfa ve ülke tabloları |
-| `/dashboard/rum` | LCP/INP/CLS/FCP/TTFB skorları, rating dağılımı, en yavaş sayfalar |
-| `/dashboard/events` | Ham event akışı (yol, metrik ve ülkeye göre arama) |
+| `/dashboard` | KPI'lar (ziyaretçi, sayfa görüntüleme, event, dönüşüm), trafik grafiği, gerçek zamanlı görünüm, en çok ziyaret edilen sayfalar, cihaz dağılımı, referrer'lar, dönüşümler |
+| `/dashboard/analytics` | Ziyaretçi + sayfa görüntüleme trendi, referrer/UTM kampanyası, ülke ve özel event kırılımları |
+| `/dashboard/rum` | LCP/INP/CLS/FCP/TTFB için p50/p75/ortalama, rating dağılımı, en yavaş sayfalar (yetersiz veride p75 boş kalır) |
+| `/dashboard/events` | Özel event kırılımı (ad ile arama) |
+| `/dashboard/pages` | Sayfa ve ülke kırılımları |
+| `/dashboard/settings` | Site bilgileri ve SDK kurulum snippet'i |
 
-Veri kaynağı yeni read-only uç: `GET /api/stats?range=24h|7d|30d`
-(`?site=<public id|hostname>` opsiyonel). Site, `/api/collect` ile aynı şekilde
-Origin/Referer'dan çözülür; **GET hiçbir site kaydı oluşturmaz** — bilinmeyen
-origin boş bir payload döner ve konsol boş durumu gösterir.
+Veri kaynağı read-only uçlar: `GET /api/analytics/summary` ve
+`GET /api/rum/summary` (`?range=24h|7d|30d|90d`, `?site=<public id|hostname>`
+opsiyonel). Site, `/api/collect` ile aynı şekilde Origin/Referer'dan çözülür;
+**GET hiçbir site kaydı oluşturmaz** — bilinmeyen origin boş bir payload
+döner ve konsol boş durumu gösterir.
 
 `src/console/` altındaki konsol, `recharts` içerdiği için landing'den
 `React.lazy` ile ayrı chunk olarak yüklenir; ziyaretçi sayfa konsolun
 paket maliyetini ödemez. Konsol her 30 saniyede kendini yeniler.
+
+---
+
+## Free plan koruması
+
+- **Batch:** SDK varsayılan 32 event gönderir; Worker en fazla 64 event kabul
+  eder. İstek başına D1 sorgu sayısı sabittir.
+- **Günlük kota:** her sitenin `daily_event_limit` değeri vardır (varsayılan
+  25.000). Kota dolduğunda ingest `429 quota_exceeded` döner ve **olay yazılmaz**;
+  başarı gibi gösterilmez.
+- **Sayaç:** günlük olay sayısı `sites` tablosunda tutulur, böylece kota
+  kontrolü için ek bir sorgu yapılmaz.
+- **Saklama:** `retention_days` (varsayılan 30 gün) ve günlük cron (`0 3 * * *`)
+  eski verileri siler. Manuel silme: `POST /api/admin/sites/:id/purge`.
+- **Satır okuma ekonomisi:** `sessions` tablosu oturum başına tek satır
+  tutar; ziyaretçi/oturum sayıları `COUNT(DISTINCT)` taraması yerine bu küçük
+  tablodan okunur. Zaman serisi ve kırılımlar `(site_id, ts)` ve
+  `(site_id, metric, ts)` indekslerini kullanır; her sorgu site + zaman
+  aralığı ile sınırlıdır.
+- **Sınır hataları:** kota → `429`, geçersiz gövde → `400`, çok büyük gövde →
+  `413`, yazma hatası → `500 { accepted: 0 }`. Hiçbir zaman "başarılı" denip
+  yazılmayan olay gösterilmez.
+- **Ücretli servise geçiş yok:** tüm altyapı Workers + D1 + statik varlıklar
+  ile sınırlıdır.
+
+---
+
+## Testler
+
+```bash
+npm test     # build:sdk + node --test (24 test)
+```
+
+| Dosya | Kapsam |
+| --- | --- |
+| `tests/sdk.test.mjs` | SDK: sayfa görüntüleme, referrer/UTM, oturum id, prop filtresi (kişisel veri), geçersiz event adı, batch, opt-out, DNT izni, oturum yeniden kullanımı. |
+| `tests/api.test.mjs` | Bozuk payload, geçersiz JSON, batch limiti, kayıt + kabul edilen sayısı, vital dedup, analytics raporu, site izolasyonu, origin uyuşmazlığı, boş veri, yetersiz veride p75'in boş kalması, admin koruması, goal/dönüşüm takibi, kota hatası, retention purge. |
+| `tests/build.test.mjs` | Üretim build'i: HTML kabuğu, SDK'nın varlığı ve boyutu, giriş paketinin boyutu. |
+
+API testleri gerçek `wrangler dev` + yerel D1 üzerinde çalışır (Miniflare),
+yani mock değil gerçek HTTP + gerçek SQL yolu test edilir.
 
 ---
 

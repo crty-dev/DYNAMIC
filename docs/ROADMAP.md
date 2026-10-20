@@ -24,23 +24,28 @@ Oşe olunar) öncelikli, mevcut boş workspace gerçeklerine göre.
 
 - [x] D1 migration 0001: `sites`, `events`, `session_cache` + indexler
 - [x] `collect` endpoint: origin/CORS doğrulaması, payload şema (zod), batch insert `db.batch()`
-- [ ] `admin/auth` (v1: token-based; session cookies bir sonraki adım)
-- [x] Dashboard sorguları: `/api/stats` — index'li zaman aralığı özetleri, bucket'lı seri, satır okuma ekonomisi
+- [x] Migration 0003: `sessions`, `goals`, event kırılım boyutları, dedup indeksi, saklama + kota ayarları
+- [x] Dashboard sorguları: `/api/analytics/*` ve `/api/rum/*` — index'li, site + zaman aralığı sınırlı
+- [x] Admin/auth: `/api/admin/*` bearer token koruması, site/goal yönetimi, retention purge
+- [ ] Admin/auth v2: session cookie + çok kullanıcılı roller
 
 ## Faz 3 — SDK + RUM
 
-- [ ] `web-vitals` attribution build entegrasyonu, `sendBeacon` batiş
-- [ ] `public/js/dctv.js` — siteleyici embed script (data `siteKey` attr, async/dedupted)
-- [ ] Session heuristik (no cookie: IP-hash yerine Günlük rotasyonlu hash + UA)
-- [ ] Dedup: `metric_id` (web-vitals "id") o aplicaciones; eğer aynı id tekrar gelen delta'lar
+- [x] `public/js/dynamic.js` — async SDK: otomatik sayfa görüntüleme, özel event, SPA navigasyon, batch, boyut sınırı, sınırlı retry
+- [x] Consent / opt-out: DNT izni, `consent.grant/deny`, `optIn/optOut`
+- [x] Kişisel veri yok: prop filtreleme, form/input okunmaz, çerez yok (sessionStorage + 30 dk rotasyon)
+- [x] `web-vitals` paketlenmiş: LCP/INP/CLS/FCP/TTFB, metric id ile dedup
+- [x] RUM raporları: p50/p75/ortalama + rating dağılımı; yetersiz veride p75 boş kalır
+- [x] Free plan koruması: günlük kota, retention cron, sessions tablosu, satır okuma ekonomisi
 
 ## Faz 4 — Landing + Dashboard UI
 
 - [x] Landing: Figma referans kompozisyonu → marka paleti mavi-turkuaz; `images/` WebP varlıkları (lazy)
 - [ ] shadcn bileşenleri: card, table, tabs, dialog, tooltip
-- [x] Dashboard v1: `src/console/` — Traffic özeti, siteler listesi, event grafiği (Recharts), ülke/cihaz filtreleri
-- [x] RUM sekmesi: CWV skor kartı (LCP/INP/CLS/FCP/TTFB), rating dağılımı, en yavaş sayfalar
+- [x] Dashboard v1: `src/console/` — Traffic özeti, event grafiği (Recharts), ülke/cihaz/referrer/dönüşüm kırılımları
+- [x] RUM sekmesi: CWV skor kartı (LCP/INP/CLS/FCP/TTFB), p75, en yavaş sayfalar
 - [x] Flatlogic "react-dashboard" şablonu konsol düzenine taşındı (eski CRA/Express çalıştırması taşınmadı)
+- [x] SDK snippet landing'e bağlandı (uçtan uca akış: SDK → ingest → D1 → konsol)
 
 ## Faz 5 — Dağıtım (Free plan)
 

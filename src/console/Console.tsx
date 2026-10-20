@@ -18,7 +18,8 @@ import { CLOUDINARY_ASSETS } from "../lib/cloudinary";
 import {
   ConsoleContext,
   RANGE_LABELS,
-  useStats,
+  useAnalytics,
+  useRum,
   type StatsRange,
 } from "./stats";
 import "./console.css";
@@ -47,11 +48,12 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [{ to: "/dashboard/rum", label: "Web Vitals", icon: Gauge }],
   },
   {
+    title: "Data",
+    items: [{ to: "/dashboard/pages", label: "Pages", icon: ListTree }],
+  },
+  {
     title: "System",
-    items: [
-      { to: "/dashboard/pages", label: "Pages", icon: ListTree },
-      { to: "/dashboard/settings", label: "Settings", icon: Settings },
-    ],
+    items: [{ to: "/dashboard/settings", label: "Settings", icon: Settings }],
   },
 ];
 
@@ -103,24 +105,34 @@ export default function Console() {
   const [query, setQuery] = useState("");
   const [navOpen, setNavOpen] = useState(false);
   const location = useLocation();
-  const queryResult = useStats(range);
-  const stats = queryResult.data;
+  const analyticsQuery = useAnalytics(range);
+  const rumQuery = useRum(range);
+  const analytics = analyticsQuery.data;
 
   const meta = PAGE_META[location.pathname] ?? PAGE_META["/dashboard"];
-  const site = stats?.site ?? null;
+  const site = analytics?.site ?? null;
 
   const value = useMemo(
     () => ({
       range,
       setRange,
-      stats,
-      isLoading: queryResult.isLoading,
-      isError: queryResult.isError,
-      isFetching: queryResult.isFetching,
+      analytics,
+      rum: rumQuery.data,
+      isLoading: analyticsQuery.isLoading,
+      isError: analyticsQuery.isError,
+      isFetching: analyticsQuery.isFetching,
       query,
       setQuery,
     }),
-    [range, stats, queryResult.isLoading, queryResult.isError, queryResult.isFetching, query],
+    [
+      range,
+      analytics,
+      rumQuery.data,
+      analyticsQuery.isLoading,
+      analyticsQuery.isError,
+      analyticsQuery.isFetching,
+      query,
+    ],
   );
 
   return (
@@ -188,9 +200,9 @@ export default function Console() {
               </label>
 
               <div className="console__header-actions">
-                <span className={queryResult.isFetching ? "console__live is-stale" : "console__live"}>
+                <span className={analyticsQuery.isFetching ? "console__live is-stale" : "console__live"}>
                   <i aria-hidden />
-                  {queryResult.isFetching ? "Syncing" : "Live"}
+                  {analyticsQuery.isFetching ? "Syncing" : "Live"}
                 </span>
 
                 <div className="console__range" role="group" aria-label="Time range">

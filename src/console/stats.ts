@@ -1,63 +1,72 @@
 import { createContext, useContext } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-export type StatsRange = "24h" | "7d" | "30d";
-
-export type VitalRating = "good" | "needs-improvement" | "poor";
-
-export type Stats = {
-  ok: boolean;
-  range: StatsRange;
-  generatedAt?: number;
-  site: { id: string; name: string; origin: string } | null;
-  totals: { pageviews: number; visitors: number; events: number; custom: number };
-  vitals: {
-    metric: string;
-    avg: number | null;
-    samples: number;
-    ratings: { good: number; "needs-improvement": number; poor: number };
-  }[];
-  series: { t: number; pageviews: number; visitors: number; events: number }[];
-  topPages: { path: string; n: number }[];
-  topCountries: { country: string | null; n: number }[];
-  slowPages: { path: string; avg: number; n: number }[];
-  recent: {
-    ts: number;
-    metric: string;
-    value: number | null;
-    rating: string | null;
-    path: string | null;
-    country: string | null;
-    ua: string | null;
-  }[];
-};
+export type StatsRange = "24h" | "7d" | "30d" | "90d";
 
 export const RANGE_LABELS: Record<StatsRange, string> = {
   "24h": "24h",
   "7d": "7d",
   "30d": "30d",
+  "90d": "90d",
 };
+
+export type AnalyticsSummary = {
+  ok: boolean;
+  range: StatsRange;
+  generatedAt?: number;
+  empty?: boolean;
+  site: { id: string; name: string; origin: string } | null;
+  totals: {
+    pageviews: number;
+    visitors: number;
+    sessions: number;
+    events: number;
+    customEvents: number;
+    conversions: number;
+    goals: number;
+  };
+  series: { t: number; pageviews: number; visitors: number; events: number }[];
+  topPages: { path: string; n: number }[];
+  referrers: { referrer: string; n: number }[];
+  campaigns: { source: string | null; medium: string | null; campaign: string | null; n: number }[];
+  devices: { device: string; browser: string; os: string; n: number }[];
+  goals: { name: string; n: number; value: number }[];
+  customEvents: { name: string; n: number }[];
+  countries: { country: string; n: number }[];
+  realtime: { events: number; activeSessions: number; topPages: { path: string; n: number }[] };
+};
+
+export type RumMetric = {
+  metric: string;
+  samples: number;
+  avg: number | null;
+  p50: number | null;
+  p75: number | null;
+  good: number;
+  needsImprovement: number;
+  poor: number;
+  sufficient: boolean;
+  note?: string;
+};
+
+export type RumSummary = {
+  ok: boolean;
+  range: StatsRange;
+  minSamples: number;
+  metrics: RumMetric[];
+};
+
+export type RumPage = { path: string; samples: number; avg: number | null; p75: number | null };
 
 /* ------------------------------------------------------------- formatters */
 
 export const fmtInt = (n: number): string => n.toLocaleString("en-US");
 
-/** Web-vital formatting: CLS is unitless, the rest is ms (seconds above 1 s). */
 export function fmtMetric(metric: string, value: number | null): string {
   if (value == null) return "—";
   if (metric === "CLS") return value.toFixed(3);
   if (value >= 1000) return `${(value / 1000).toFixed(1)} s`;
   return `${Math.round(value)} ms`;
-}
-
-export function fmtStamp(ts: number): string {
-  return new Date(ts).toLocaleString("en-US", {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
 }
 
 export function fmtBucket(ts: number, range: StatsRange): string {
@@ -75,28 +84,37 @@ export function ratingClass(rating: string | null): string {
   return "";
 }
 
-/** Short user-agent label for the event stream. */
-export function uaLabel(ua: string | null): string {
-  if (!ua) return "—";
-  if (/edg\//i.test(ua)) return "Edge";
-  if (/chrome|crios/i.test(ua)) return "Chrome";
-  if (/firefox|fxios/i.test(ua)) return "Firefox";
-  if (/safari/i.test(ua)) return "Safari";
-  return "Other";
-}
-
 /* ------------------------------------------------------------------ query */
 
-export function useStats(range: StatsRange) {
+async function getJson<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`${url} → ${response.status}`);
+  return (await response.json()) as T;
+}
+
+export function useAnalytics(range: StatsRange) {
   return useQuery({
-    queryKey: ["stats", range],
-    queryFn: async (): Promise<Stats> => {
-      const response = await fetch(`/api/stats?range=${range}`);
-      if (!response.ok) throw new Error(`stats_failed_${response.status}`);
-      return (await response.json()) as Stats;
-    },
+    queryKey: ["analytics", range],
+    queryFn: () => getJson<AnalyticsSummary>(`/api/analytics/summary?range=${range}`),
     refetchInterval: 30_000,
     staleTime: 15_000,
+  });
+}
+
+export function useRum(range: StatsRange) {
+  return useQuery({
+    queryKey: ["rum", range],
+    queryFn: () => getJson<RumSummary>(`/api/rum/summary?range=${range}`),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+}
+
+export function useRumPages(range: StatsRange, metric: string) {
+  return useQuery({
+    queryKey: ["rum-pages", range, metric],
+    queryFn: () => getJson<{ pages: RumPage[] }>(`/api/rum/pages?range=${range}&metric=${metric}`),
+    staleTime: 30_000,
   });
 }
 
@@ -105,7 +123,8 @@ export function useStats(range: StatsRange) {
 export type ConsoleContextValue = {
   range: StatsRange;
   setRange: (range: StatsRange) => void;
-  stats?: Stats;
+  analytics?: AnalyticsSummary;
+  rum?: RumSummary;
   isLoading: boolean;
   isError: boolean;
   isFetching: boolean;

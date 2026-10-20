@@ -622,6 +622,21 @@
   background: var(--blue);
 }
 
+.console__legend i.is-red {
+  background: #ff8f8f;
+}
+
+.console__realtime {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.console__kpi-insufficient {
+  color: var(--faint);
+  font-style: italic;
+}
+
 /* ----------------------------------------------------------------- vitals */
 
 .console__vital {
