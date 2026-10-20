@@ -280,6 +280,37 @@ CPU bütçesini korur. Ağır görsel efektler (halftone footer, data rain) kend
 Cloudinary hesabı: cloud `di9c12gg6`, upload key `657115753521274`. API secret
 **depoya girmez**; `.dev.vars` (git-ignored) ve Worker secret store'unda tutulur.
 
+### Bağlantı — tek komut
+
+```bash
+npm run cloudinary:link
+```
+
+Komut **sizi tek adımda** tamamlar:
+
+1. Cloudinary API secret'ını sorar (görünmez giriş).
+2. Credential'ı doğrular (yanlışsa durur, hiçbir şey yazılmaz).
+3. `.dev.vars` dosyasını yazar: `CLOUDINARY_URL` + `MEDIA_UPLOAD_TOKEN`.
+4. Worker secret store'una yazar: `npx wrangler secret put CLOUDINARY_URL` ve
+   `npx wrangler secret put MEDIA_UPLOAD_TOKEN`.
+5. Unsigned upload preset'ini oluşturur (`dynamic_uploads`, 10 MB, sadece görsel).
+6. Beş marka varlığının medya kütüphanesinde olduğunu kontrol eder; eksikse
+   `images/png-to-webp/` içinden yükler.
+
+Script'i script'siz çalıştırmak isterseniz:
+
+```bash
+npm run cloudinary:link -- --secret <API_SECRET>
+```
+
+Doğrulama:
+
+```bash
+curl https://dynamic.crty-dev.com/api/media/config   # → enabled: true
+```
+
+### Manuel kurulum (link komutunu kullanmak istemezseniz)
+
 ```bash
 # 1) .dev.vars içine gerçek secret'ı yazın
 #    CLOUDINARY_URL=cloudinary://657115753521274:<API_SECRET>@di9c12gg6
@@ -290,17 +321,16 @@ npm run cloudinary:setup
 
 # 3) marka görsellerini Cloudinary'ye yükle (isteğe bağlı)
 npm run cloudinary:upload
-```
 
-Üretimde secret'lar Worker'a yazılır:
-
-```bash
+# 4) Worker secret'larını yaz
 npx wrangler secret put CLOUDINARY_URL
 npx wrangler secret put MEDIA_UPLOAD_TOKEN
 ```
 
 `MEDIA_UPLOAD_TOKEN` rastgele bir bearer token'dır ve yükleme uçlarını korur
 (`node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"`).
+Secret girilene kadar `/api/media/config` `enabled: false` döner ve yükleme
+uçları `503 media_not_configured` verir — açık yükleme ucu oluşmaz.
 
 | Uç | Yetki | Açıklama |
 | --- | --- | --- |

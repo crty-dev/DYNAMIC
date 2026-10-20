@@ -13,6 +13,7 @@
     "brand": "node scripts/brand/build.mjs",
     "cloudinary:setup": "node scripts/cloudinary/setup.mjs",
     "cloudinary:upload": "node scripts/cloudinary/setup.mjs --upload",
+    "cloudinary:link": "node scripts/cloudinary/link.mjs",
     "db:migrate:local": "wrangler d1 migrations apply dynamic --local",
     "db:migrate:remote": "wrangler d1 migrations apply dynamic --remote",
     "deploy": "npm run build && wrangler deploy"

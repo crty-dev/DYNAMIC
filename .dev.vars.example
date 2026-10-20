@@ -1,6 +1,12 @@
-# Local dev secrets (this file is git-ignored; copy to .dev.vars)
-# Cloudinary credential — the API secret stays on your machine and in the
-# Worker secret store, never in the repo.
+# Local dev secrets — copy to .dev.vars and fill in.
+#   cp .dev.vars.example .dev.vars
+#
+# Then paste your Cloudinary API secret (console → API Keys → DYNAMIC → API Secret)
+# and run the one-time link-up:
+#   npm run cloudinary:link
+# It verifies the credential, writes .dev.vars, pushes the Worker secrets and
+# creates the upload preset.
+
 CLOUDINARY_URL=cloudinary://657115753521274:<API_SECRET>@di9c12gg6
 
 # Public values (also set in wrangler.jsonc "vars")
@@ -8,5 +14,5 @@ CLOUDINARY_CLOUD_NAME=di9c12gg6
 CLOUDINARY_UPLOAD_KEY=657115753521274
 
 # Bearer token that guards POST /api/media/upload and /api/media/signature.
-# Generate one with:  node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
+# `npm run cloudinary:link` generates and syncs this one for you.
 MEDIA_UPLOAD_TOKEN=<GENERATE_A_RANDOM_TOKEN>
