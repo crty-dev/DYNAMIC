@@ -71,7 +71,7 @@ echo Bilinmeyen secenek: %~1
 goto :usage_error
 
 :parsed
-if not defined COMMIT_MSG set "COMMIT_MSG=chore: guncelleme"
+if "%COMMIT_MSG%"=="" set "COMMIT_MSG=chore: guncelleme"
 if "%FROM%"=="" (
   echo   HATA: --from icin bir adim adi gerekli.
   goto :usage_error
