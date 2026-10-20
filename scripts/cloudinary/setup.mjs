@@ -65,7 +65,7 @@ const cloudName = parsed[3];
 
 if (/[<>]/.test(apiKey) || /[<>]/.test(apiSecret)) {
   console.error("CLOUDINARY_URL içinde placeholder var (<API_SECRET> gibi).");
-  console.error("Cloudinary console → API Keys → DYNAMIC → API Secret değerini yapıştırın.");
+  console.error("Cloudinary console → API Keys → dynamic-dev → API Secret değerini yapıştırın.");
   process.exit(1);
 }
 

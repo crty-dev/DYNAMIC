@@ -277,8 +277,10 @@ CPU bütçesini korur. Ağır görsel efektler (halftone footer, data rain) kend
 
 ## Cloudinary (medya)
 
-Cloudinary hesabı: cloud `di9c12gg6`, upload key `657115753521274`. API secret
-**depoya girmez**; `.dev.vars` (git-ignored) ve Worker secret store'unda tutulur.
+Cloudinary hesabı: cloud `di9c12gg6`, API key adı **`dynamic-dev`**, key değeri
+`657115753521274`. (Anahtarın *adı* sadece console etiketidir; kodda kullanılan
+değer `657115753521274`'dir ve değişmez.) API secret **depoya girmez**; `.dev.vars`
+(git-ignored) ve Worker secret store'unda tutulur.
 
 ### Bağlantı — tek komut
 
@@ -315,7 +317,6 @@ curl https://dynamic.crty-dev.com/api/media/config   # → enabled: true
 # 1) .dev.vars içine gerçek secret'ı yazın
 #    CLOUDINARY_URL=cloudinary://657115753521274:<API_SECRET>@di9c12gg6
 cp .dev.vars.example .dev.vars
-
 # 2) hesabı doğrula + unsigned upload preset'ini oluştur
 npm run cloudinary:setup
 

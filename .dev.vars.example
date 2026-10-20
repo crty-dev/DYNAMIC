@@ -1,7 +1,7 @@
 # Local dev secrets — copy to .dev.vars and fill in.
 #   cp .dev.vars.example .dev.vars
 #
-# Then paste your Cloudinary API secret (console → API Keys → DYNAMIC → API Secret)
+# Then paste your Cloudinary API secret (console → API Keys → dynamic-dev → API Secret)
 # and run the one-time link-up:
 #   npm run cloudinary:link
 # It verifies the credential, writes .dev.vars, pushes the Worker secrets and
