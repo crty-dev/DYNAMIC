@@ -102,7 +102,7 @@ güvensiz bir oturum üretmez).
 | --- | --- |
 | `APP_URL` | `https://app.dynamic.crty-dev.com` |
 | `MARKETING_URL` | `https://dynamic.crty-dev.com` |
-| `MAIL_FROM` | `DYNAMIC <no-reply@crty-dev.com>` |
+| `MAIL_FROM` | `DYNAMIC <no-reply@mail.crty-dev.com>` |
 | `MAX_SITES` | `500` (self-serve site sayısı sınırı) |
 
 ### 4) E-posta gönderimi (ücretsiz seçenekler)

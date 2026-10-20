@@ -41,7 +41,7 @@ APP_URL=http://localhost:5174
 MARKETING_URL=http://localhost:5173
 
 # Sender address for the verification / reset mails
-MAIL_FROM=DYNAMIC <no-reply@crty-dev.com>
+MAIL_FROM=DYNAMIC <no-reply@mail.crty-dev.com>
 
 # Transactional mail provider (optional). Without it the mails are only
 # written to the local outbox in development.
