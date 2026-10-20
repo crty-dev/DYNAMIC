@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="dg" x1="1000" y1="40" x2="60" y2="1170" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#24d2cd"/>
+      <stop offset="0.5" stop-color="#20a7df"/>
+      <stop offset="1" stop-color="#1d72fc"/>
+    </linearGradient>
+    <radialGradient id="tileGlow" cx="0.85" cy="0.08" r="1">
+      <stop offset="0" stop-color="#1d72fc" stop-opacity="0.30"/>
+      <stop offset="0.5" stop-color="#24d2cd" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#24d2cd" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="holeClip"><path d="M 250,240 A 360,360 0 0 1 250,960 Z"/></clipPath>
+    <mask id="rumCut" maskUnits="userSpaceOnUse" x="-200" y="-200" width="1400" height="1600">
+      <rect x="-200" y="-200" width="1400" height="1600" fill="#fff"/>
+      <path d="M -90,600 H 300 L 356,468 L 428,706 L 474,568 L 514,600 H 1010" fill="none" stroke="#000" stroke-width="92" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#020d1b"/>
+  <rect width="512" height="512" rx="112" fill="url(#tileGlow)"/>
+  <g transform="translate(97.65,65.98) scale(0.3167)"><path fill="url(#dg)" fill-rule="evenodd" d="M 0,0 H 420 A 600,600 0 0 1 420,1200 H 0 Z M 250,240 A 360,360 0 0 1 250,960 Z"/></g>
+  <rect x="2" y="2" width="508" height="508" rx="110" fill="none" stroke="#9ecbff" stroke-opacity="0.12" stroke-width="3"/>
+</svg>

@@ -10,6 +10,7 @@
     "build": "vite build",
     "preview": "npm run build && wrangler dev",
     "typecheck": "tsc -p tsconfig.json && tsc -p worker/tsconfig.json --noEmit",
+    "brand": "node scripts/brand/build.mjs",
     "db:migrate:local": "wrangler d1 migrations apply dynamic --local",
     "db:migrate:remote": "wrangler d1 migrations apply dynamic --remote",
     "deploy": "npm run build && wrangler deploy"
@@ -29,11 +30,14 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261019.1",
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "fontkit": "^2.0.4",
+    "png-to-ico": "^3.0.2",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
