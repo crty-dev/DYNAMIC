@@ -21,6 +21,11 @@ dist/
 # OpenCode local config (contains live MCP tokens - must NOT be committed)
 .opencode/
 
+# Legacy Flatlogic "react-dashboard" reference (CRA + Express + Sequelize).
+# Its layout is re-implemented in src/console/ on the Vite/Workers stack,
+# so the original app stays out of the repo.
+Dashborad-template/
+
 # OS / editor
 Thumbs.db
 .DS_Store

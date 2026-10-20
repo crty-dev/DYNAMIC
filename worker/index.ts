@@ -24,6 +24,7 @@ type Variables = {
 type Site = {
   id: number;
   public_id: string;
+  name: string;
   origin: string;
 };
 
@@ -217,14 +218,14 @@ function attributionFor(event: IncomingEvent): string | null | "too_large" {
 
 async function siteByOrigin(db: D1Database, origin: string): Promise<Site | null> {
   return db
-    .prepare("SELECT id, public_id, origin FROM sites WHERE origin = ? LIMIT 1")
+    .prepare("SELECT id, public_id, name, origin FROM sites WHERE origin = ? LIMIT 1")
     .bind(origin)
     .first<Site>();
 }
 
 async function siteByKey(db: D1Database, key: string): Promise<Site | null> {
   return db
-    .prepare("SELECT id, public_id, origin FROM sites WHERE public_id = ? LIMIT 1")
+    .prepare("SELECT id, public_id, name, origin FROM sites WHERE public_id = ? LIMIT 1")
     .bind(key)
     .first<Site>();
 }
@@ -649,6 +650,253 @@ app.post("/api/media/upload", async (c) => {
     console.error("cloudinary_upload_error", error);
     return c.json({ error: "upload_failed" }, 502);
   }
+});
+
+/* ==========================================================================
+   Stats — read-only aggregation for the Console
+   ========================================================================== */
+
+const STATS_RANGES = {
+  "24h": { windowMs: 24 * 3600_000, bucketMs: 3600_000, buckets: 24 },
+  "7d": { windowMs: 7 * 86400_000, bucketMs: 86400_000, buckets: 7 },
+  "30d": { windowMs: 30 * 86400_000, bucketMs: 86400_000, buckets: 30 },
+} as const;
+
+type StatsRange = keyof typeof STATS_RANGES;
+
+type CountRow = { n: number };
+type BucketRow = { bucket: number; metric: string; n: number };
+type PathRow = { path: string; n: number };
+type CountryRow = { country: string | null; n: number };
+type MetricRow = { metric: string; avg: number | null; n: number };
+type RatingRow = { metric: string; rating: string | null; n: number };
+type EventRow = {
+  ts: number;
+  metric: string;
+  value: number | null;
+  rating: string | null;
+  path: string | null;
+  country: string | null;
+  ua: string | null;
+};
+
+const VITAL_METRIC_LIST = ["LCP", "INP", "CLS", "FCP", "TTFB"] as const;
+
+/**
+ * The console reads the site of the visiting origin, so /api/stats resolves
+ * the same way /api/collect does: Origin header first, Referer as fallback.
+ */
+app.use("/api/stats", async (c, next) => {
+  const rawOrigin = c.req.header("origin");
+  const corsOrigin = rawOrigin ? normalizeOrigin(rawOrigin) : null;
+  const requestOrigin = corsOrigin ?? normalizeOrigin(c.req.header("referer") ?? "");
+  c.set("requestOrigin", requestOrigin);
+  if (corsOrigin) {
+    c.header("Access-Control-Allow-Origin", corsOrigin);
+    c.header("Vary", "Origin");
+  }
+  await next();
+});
+
+/** Read-only site lookup — never registers a new site from a GET. */
+async function findSite(
+  db: D1Database,
+  requestOrigin: string | null,
+  siteKey: string | undefined,
+): Promise<Site | null> {
+  if (siteKey) {
+    const key = siteKey.trim();
+    const byKey = await siteByKey(db, key);
+    if (byKey) return byKey;
+    const origin = siteKeyToOrigin(key, requestOrigin);
+    if (origin) return siteByOrigin(db, origin);
+    return null;
+  }
+  if (!requestOrigin) return null;
+  return siteByOrigin(db, requestOrigin);
+}
+
+/**
+ * GET /api/stats — console aggregates for one site.
+ *
+ * Query: `?range=24h|7d|30d` and optional `?site=<public id|hostname>`.
+ * Unknown origins return an empty payload (the console shows an empty state)
+ * instead of creating a site; only /api/collect registers sites.
+ */
+app.get("/api/stats", async (c) => {
+  const rawRange = (c.req.query("range") ?? "7d").toLowerCase();
+  const range: StatsRange =
+    rawRange in STATS_RANGES ? (rawRange as StatsRange) : "7d";
+  const { windowMs, bucketMs, buckets } = STATS_RANGES[range];
+
+  const site = await findSite(c.env.DB, c.get("requestOrigin"), c.req.query("site"));
+
+  if (!site) {
+    return c.json({
+      ok: true,
+      range,
+      site: null,
+      totals: { pageviews: 0, visitors: 0, events: 0, custom: 0 },
+      vitals: [],
+      ratings: [],
+      series: [],
+      topPages: [],
+      topCountries: [],
+      slowPages: [],
+      recent: [],
+    });
+  }
+
+  const now = Date.now();
+  const from = now - windowMs;
+  const siteId = site.id;
+
+  const [
+    pageviews,
+    visitors,
+    events,
+    custom,
+    seriesRows,
+    visitorRows,
+    pathRows,
+    countryRows,
+    vitalRows,
+    ratingRows,
+    slowRows,
+    recentRows,
+  ] = await Promise.all([
+    c.env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM events WHERE site_id = ? AND metric = 'pageview' AND ts >= ?",
+    )
+      .bind(siteId, from)
+      .first<CountRow>(),
+    c.env.DB.prepare(
+      "SELECT COUNT(DISTINCT session_id) AS n FROM events WHERE site_id = ? AND session_id IS NOT NULL AND ts >= ?",
+    )
+      .bind(siteId, from)
+      .first<CountRow>(),
+    c.env.DB.prepare("SELECT COUNT(*) AS n FROM events WHERE site_id = ? AND ts >= ?")
+      .bind(siteId, from)
+      .first<CountRow>(),
+    c.env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM events
+        WHERE site_id = ? AND ts >= ? AND metric <> 'pageview'
+          AND metric NOT IN ('LCP','INP','CLS','FCP','TTFB')`,
+    )
+      .bind(siteId, from)
+      .first<CountRow>(),
+    c.env.DB.prepare(
+      `SELECT CAST(ts / ? AS INTEGER) AS bucket, metric, COUNT(*) AS n
+         FROM events WHERE site_id = ? AND ts >= ? GROUP BY bucket, metric`,
+    )
+      .bind(bucketMs, siteId, from)
+      .all<BucketRow>(),
+    c.env.DB.prepare(
+      `SELECT CAST(ts / ? AS INTEGER) AS bucket, COUNT(DISTINCT session_id) AS visitors
+         FROM events WHERE site_id = ? AND ts >= ? AND session_id IS NOT NULL GROUP BY bucket`,
+    )
+      .bind(bucketMs, siteId, from)
+      .all<{ bucket: number; visitors: number }>(),
+    c.env.DB.prepare(
+      `SELECT path, COUNT(*) AS n FROM events
+        WHERE site_id = ? AND metric = 'pageview' AND ts >= ? AND path IS NOT NULL
+        GROUP BY path ORDER BY n DESC LIMIT 10`,
+    )
+      .bind(siteId, from)
+      .all<PathRow>(),
+    c.env.DB.prepare(
+      `SELECT country, COUNT(*) AS n FROM events
+        WHERE site_id = ? AND ts >= ? AND country IS NOT NULL
+        GROUP BY country ORDER BY n DESC LIMIT 6`,
+    )
+      .bind(siteId, from)
+      .all<CountryRow>(),
+    c.env.DB.prepare(
+      `SELECT metric, AVG(value) AS avg, COUNT(*) AS n FROM events
+        WHERE site_id = ? AND ts >= ? AND metric IN ('LCP','INP','CLS','FCP','TTFB')
+        GROUP BY metric`,
+    )
+      .bind(siteId, from)
+      .all<MetricRow>(),
+    c.env.DB.prepare(
+      `SELECT metric, rating, COUNT(*) AS n FROM events
+        WHERE site_id = ? AND ts >= ? AND metric IN ('LCP','INP','CLS','FCP','TTFB')
+        GROUP BY metric, rating`,
+    )
+      .bind(siteId, from)
+      .all<RatingRow>(),
+    c.env.DB.prepare(
+      `SELECT path, AVG(value) AS avg, COUNT(*) AS n FROM events
+        WHERE site_id = ? AND ts >= ? AND metric = 'LCP' AND path IS NOT NULL
+        GROUP BY path ORDER BY avg DESC LIMIT 6`,
+    )
+      .bind(siteId, from)
+      .all<{ path: string; avg: number; n: number }>(),
+    c.env.DB.prepare(
+      `SELECT ts, metric, value, rating, path, country, ua FROM events
+        WHERE site_id = ? ORDER BY ts DESC LIMIT 12`,
+    )
+      .bind(siteId)
+      .all<EventRow>(),
+  ]);
+
+  // Fill the time series so gaps render as zero instead of missing points.
+  const firstBucket = Math.floor(from / bucketMs);
+  const series = Array.from({ length: buckets }, (_, i) => {
+    const bucket = firstBucket + i;
+    return {
+      t: bucket * bucketMs,
+      pageviews: 0,
+      visitors: 0,
+      events: 0,
+    };
+  });
+  for (const row of seriesRows.results) {
+    const index = row.bucket - firstBucket;
+    if (index < 0 || index >= series.length) continue;
+    const point = series[index];
+    point.events += row.n;
+    if (row.metric === "pageview") point.pageviews += row.n;
+  }
+  for (const row of visitorRows.results) {
+    const index = row.bucket - firstBucket;
+    if (index < 0 || index >= series.length) continue;
+    series[index].visitors = row.visitors;
+  }
+
+  const vitals = VITAL_METRIC_LIST.map((metric) => {
+    const row = vitalRows.results.find((r) => r.metric === metric);
+    return {
+      metric,
+      avg: row?.avg ?? null,
+      samples: row?.n ?? 0,
+      ratings: {
+        good: ratingRows.results.find((r) => r.metric === metric && r.rating === "good")?.n ?? 0,
+        "needs-improvement":
+          ratingRows.results.find((r) => r.metric === metric && r.rating === "needs-improvement")?.n ?? 0,
+        poor: ratingRows.results.find((r) => r.metric === metric && r.rating === "poor")?.n ?? 0,
+      },
+    };
+  });
+
+  return c.json({
+    ok: true,
+    range,
+    generatedAt: now,
+    site: { id: site.public_id, name: site.name, origin: site.origin },
+    totals: {
+      pageviews: pageviews?.n ?? 0,
+      visitors: visitors?.n ?? 0,
+      events: events?.n ?? 0,
+      custom: custom?.n ?? 0,
+    },
+    vitals,
+    series,
+    topPages: pathRows.results,
+    topCountries: countryRows.results,
+    slowPages: slowRows.results,
+    recent: recentRows.results,
+  });
 });
 
 /** Unknown API routes stay JSON instead of falling through to the SPA. */

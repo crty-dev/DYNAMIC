@@ -82,8 +82,33 @@ curl -X POST http://localhost:8787/api/collect \
 
 Yerel API için: `npm run db:migrate:local`, ardından `npm run build` ve
 `npx wrangler dev --local`. `npm run dev` yalnızca Vite arayüzünü çalıştırır.
-Admin/auth, dashboard sorguları ve rate-limit koruması Faz 2'nin sıradaki
-adımlarıdır.
+Admin/auth ve rate-limit koruması sıradaki adımlardır.
+
+---
+
+## Console (dashboard)
+
+`/dashboard` artık gerçek bir konsoldur: Flatlogic "react-dashboard" şablonunun
+m düzeni (sabit sidebar + sticky header + widget ızgarası) DYNAMIC paletiyle
+ve **canlı D1 verisiyle** yeniden yazıldı. Eski CRA/Bootstrap/Express
+çalıştırması, `sequelize` ve `sqlite` bağımlılıkları taşınmadı — proje
+Vite + React 19 + TypeScript + Tailwind v4 + Cloudflare Workers üzerinde kalır.
+
+| Rota | İçerik |
+| --- | --- |
+| `/dashboard` | KPI'lar (ziyaretçi, sayfa görüntüleme, event, ort. LCP), trafik grafiği, Web Vitals dağılımı, en çok ziyaret edilen sayfalar/ülkeler, canlı event akışı |
+| `/dashboard/analytics` | Ziyaretçi + sayfa görüntüleme trendi, sayfa ve ülke tabloları |
+| `/dashboard/rum` | LCP/INP/CLS/FCP/TTFB skorları, rating dağılımı, en yavaş sayfalar |
+| `/dashboard/events` | Ham event akışı (yol, metrik ve ülkeye göre arama) |
+
+Veri kaynağı yeni read-only uç: `GET /api/stats?range=24h|7d|30d`
+(`?site=<public id|hostname>` opsiyonel). Site, `/api/collect` ile aynı şekilde
+Origin/Referer'dan çözülür; **GET hiçbir site kaydı oluşturmaz** — bilinmeyen
+origin boş bir payload döner ve konsol boş durumu gösterir.
+
+`src/console/` altındaki konsol, `recharts` içerdiği için landing'den
+`React.lazy` ile ayrı chunk olarak yüklenir; ziyaretçi sayfa konsolun
+paket maliyetini ödemez. Konsol her 30 saniyede kendini yeniler.
 
 ---
 

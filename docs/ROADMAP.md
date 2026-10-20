@@ -12,20 +12,20 @@ Oşe olunar) öncelikli, mevcut boş workspace gerçeklerine göre.
 
 ## Faz 1 — Proje iskeleti (karardan sonra)
 
-- [ ] `package.json` (Vite + TS, tek paket; workspaces GEREKMEZ)
-- [ ] Vite + React + TypeScript kurulumu (React, ReactDOM, TS konfigürasyonları)
-- [ ] Tailwind CSS v4 + shadcn/ui jagged kurulumu (PALET: `#1d72fc→#24d2cd`)
-- [ ] `wrangler.jsonc` (Worker main + Static Assets `dist/`, D1 binding `DB`)
-- [ ] `worker/` (Hono) — `health`, `collect` (stub), `auth` route iskeleti ve middleware
-- [ ] React Router + TanStack Query sağğuçu (Provider kurulum) 
-- [ ] Local dev: `vite build` + `wrangler dev` (Statik assets ile)
+- [x] `package.json` (Vite + TS, tek paket; workspaces GEREKMEZ)
+- [x] Vite + React + TypeScript kurulumu (React, ReactDOM, TS konfigürasyonları)
+- [x] Tailwind CSS v4 + shadcn/ui jagged kurulumu (PALET: `#1d70fd→#23d8ca`)
+- [x] `wrangler.jsonc` (Worker main + Static Assets `dist/`, D1 binding `DB`)
+- [x] `worker/` (Hono) — `health`, `collect` (stub), `auth` route iskeleti ve middleware
+- [x] React Router + TanStack Query sağğuçu (Provider kurulum) 
+- [x] Local dev: `vite build` + `wrangler dev` (Statik assets ile)
 
 ## Faz 2 — Veri katmanı
 
-- [ ] D1 migration 0001: `sites`, `events`, `session_cache` + indexler
-- [ ] `collect` endpoint: origin/CORS doğrulaması, payload şema (zod), batch insert `db.batch()`
+- [x] D1 migration 0001: `sites`, `events`, `session_cache` + indexler
+- [x] `collect` endpoint: origin/CORS doğrulaması, payload şema (zod), batch insert `db.batch()`
 - [ ] `admin/auth` (v1: token-based; session cookies bir sonraki adım)
-- [ ] Dashboard sorguları: günlük/haftalık özet sunmak için **satır okuma ekonomisi** stratejisi (index'li sorgular, zaman birliştirmesi)
+- [x] Dashboard sorguları: `/api/stats` — index'li zaman aralığı özetleri, bucket'lı seri, satır okuma ekonomisi
 
 ## Faz 3 — SDK + RUM
 
@@ -36,18 +36,20 @@ Oşe olunar) öncelikli, mevcut boş workspace gerçeklerine göre.
 
 ## Faz 4 — Landing + Dashboard UI
 
-- [ ] Landing: Figma referans kompozisyonu → marka paleti mavi-turkuaz; `images/` WebP varlıkları (lazy)
+- [x] Landing: Figma referans kompozisyonu → marka paleti mavi-turkuaz; `images/` WebP varlıkları (lazy)
 - [ ] shadcn bileşenleri: card, table, tabs, dialog, tooltip
-- [ ] Dashboard v1: Traffic özeti, siteler listesi, event grafiği (Recharts), ülke/cihaz filtreleri
-- [ ] RUM sekmesi: CWV skor kartı (LCP/INP/CLS/FCP/TTFB), p75 trendleri, páginas detalle
+- [x] Dashboard v1: `src/console/` — Traffic özeti, siteler listesi, event grafiği (Recharts), ülke/cihaz filtreleri
+- [x] RUM sekmesi: CWV skor kartı (LCP/INP/CLS/FCP/TTFB), rating dağılımı, en yavaş sayfalar
+- [x] Flatlogic "react-dashboard" şablonu konsol düzenine taşındı (eski CRA/Express çalıştırması taşınmadı)
 
 ## Faz 5 — Dağıtım (Free plan)
 
-- [ ] `npx wrangler d1 create dynamic` → projeye bağla
-- [ ] `npx wrangler d1 migrations apply dynamic --remote`
-- [ ] `npx wrangler deploy` → bağlama custom domain (`dynamic.crty-dev.com` DNS'te geldiğinde)
-- [ ] Cloudflare Observability: error-free `wrangler tail` doğrulaması
-- [ ] Free plan kota gözlemi: Workers istek/d, D1 row read/gügün — Monitoring noktası
+- [x] `npx wrangler d1 create dynamic` → projeye bağla
+- [x] `npx wrangler d1 migrations apply dynamic --remote`
+- [x] `npx wrangler deploy` → `dynamic.streamforge-46.workers.dev` yayında
+- [ ] Custom domain: `dynamic.crty-dev.com` Worker'a bağlanacak (DNS yazma yetkisi gerekiyor)
+- [x] Cloudflare Observability: `observability.enabled` wrangler.jsonc'de açık
+- [ ] Free plan kota gözlemi: Workers istek/g, D1 row read/gün — Monitoring noktası
 
 ## Faz 6 — (v2, opsiyonel)
 
