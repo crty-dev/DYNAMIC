@@ -32,6 +32,10 @@ ADMIN_API_KEY=<GENERATE_A_RANDOM_TOKEN>
 # Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 BETTER_AUTH_SECRET=<GENERATE_A_32_CHARACTER_SECRET>
 
+# Better Auth dashboard (https://dash.better-auth.com) ownership verification.
+# Copy the key from the Better Auth dashboard and add it here and as a Worker secret.
+# BETTER_AUTH_API_KEY=
+
 # Public URLs of the two origins
 APP_URL=http://localhost:5174
 MARKETING_URL=http://localhost:5173

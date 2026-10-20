@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 import { ArrowRight, Check, LogOut, RefreshCw, Trash2 } from "lucide-react";
 import {
   ApiError,
+  APP_BASE_PATH,
   authClient,
   fmtInt,
   fmtMetric,
@@ -141,7 +142,12 @@ export function Register() {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const { error: signUpError } = await authClient.signUp.email({ name, email, password });
+    const { error: signUpError } = await authClient.signUp.email({
+      name,
+      email,
+      password,
+      callbackURL: `${APP_BASE_PATH}/verify-email`,
+    });
     setBusy(false);
     if (signUpError) {
       setError(
@@ -288,7 +294,10 @@ export function ForgotPassword() {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const { error: resetError } = await authClient.requestPasswordReset({ email, redirectTo: "/reset-password" });
+    const { error: resetError } = await authClient.requestPasswordReset({
+      email,
+      redirectTo: `${APP_BASE_PATH}/reset-password`,
+    });
     setBusy(false);
     if (resetError) {
       setError("Sıfırlama isteği gönderilemedi. Biraz sonra tekrar deneyin.");

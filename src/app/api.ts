@@ -1,4 +1,5 @@
 import { createAuthClient } from "better-auth/react";
+import { sentinelClient } from "@better-auth/infra/client";
 
 /**
  * API origin.
@@ -18,7 +19,15 @@ export const authClient = createAuthClient({
   baseURL: API_ORIGIN,
   basePath: "/api/auth",
   fetchOptions: { credentials: "include" },
+  plugins: [sentinelClient()],
 });
+
+/**
+ * Where the application is mounted on this origin: "/" on the app domain,
+ * "/app" when it is served from the marketing origin.
+ */
+export const APP_BASE_PATH =
+  typeof window !== "undefined" && window.location.pathname.startsWith("/app") ? "/app" : "";
 
 /* --------------------------------------------------------------- projects */
 

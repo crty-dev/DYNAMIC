@@ -1,5 +1,6 @@
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { captcha } from "better-auth/plugins";
+import { dash } from "@better-auth/infra";
 import { config, type Bindings } from "./env";
 import { sendMail } from "./mailer";
 
@@ -17,7 +18,8 @@ import { sendMail } from "./mailer";
 type MailTarget = { user: { email: string; name?: string | null }; url: string };
 
 function buildOptions(env: Bindings): BetterAuthOptions {
-  const { appUrl, authSecret, turnstile } = config(env);
+  const { appUrl, authBaseUrl, authSecret, turnstile } = config(env);
+  const infraApiKey = env.BETTER_AUTH_API_KEY ?? "";
   const limitMax = Number(env.AUTH_RATE_LIMIT_MAX ?? 0) || null;
   const plugins: NonNullable<BetterAuthOptions["plugins"]> = turnstile.secretKey
     ? [
@@ -31,7 +33,7 @@ function buildOptions(env: Bindings): BetterAuthOptions {
 
   return {
     appName: "DYNAMIC",
-    baseURL: appUrl,
+    baseURL: authBaseUrl,
     basePath: "/api/auth",
     secret: authSecret ?? "",
     database: env.DB,
@@ -91,7 +93,15 @@ function buildOptions(env: Bindings): BetterAuthOptions {
       crossSubDomainCookies: { enabled: false },
       database: { generateId: () => crypto.randomUUID() },
     },
-    trustedOrigins: [appUrl, "http://localhost:5174", "http://127.0.0.1:5174"],
+    trustedOrigins: [
+      appUrl,
+      authBaseUrl,
+      "https://dash.better-auth.com",
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://127.0.0.1:5173",
+      "http://127.0.0.1:5174",
+    ],
     rateLimit: {
       enabled: true,
       window: 60,
@@ -109,7 +119,12 @@ function buildOptions(env: Bindings): BetterAuthOptions {
       changeEmail: { enabled: false },
       deleteUser: { enabled: true },
     },
-    plugins,
+    plugins: [
+      ...plugins,
+      // The dashboard plugin is only mounted when an API key is configured, so
+      // the application keeps working without it.
+      ...(infraApiKey ? [dash({ apiKey: infraApiKey })] : []),
+    ],
   };
 }
 

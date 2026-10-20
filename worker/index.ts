@@ -2031,6 +2031,17 @@ app.use("/api/auth/*", async (c, next) => {
     c.header("Access-Control-Allow-Credentials", "true");
     c.header("Vary", "Origin");
   }
+  // The Better Auth dashboard calls this endpoint straight from the browser,
+  // so the preflight has to be answered here.
+  if (c.req.method === "OPTIONS") {
+    c.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    c.header(
+      "Access-Control-Allow-Headers",
+      c.req.header("access-control-request-headers") ?? "content-type, authorization",
+    );
+    c.header("Access-Control-Max-Age", "600");
+    return c.body(null, 204);
+  }
   await next();
 });
 

@@ -11,10 +11,14 @@ export type Bindings = {
   ASSETS: Fetcher;
   /** Better Auth signing secret (32+ chars). */
   BETTER_AUTH_SECRET?: string;
+  /** Better Auth API key for the @better-auth/infra dashboard plugin. */
+  BETTER_AUTH_API_KEY?: string;
   /** Public URL of the product application (https://app.dynamic.crty-dev.com). */
   APP_URL?: string;
   /** Public URL of the marketing website. */
   MARKETING_URL?: string;
+  /** Base URL used by Better Auth (defaults to the marketing website). */
+  AUTH_BASE_URL?: string;
   /** Sender address for transactional mail. */
   MAIL_FROM?: string;
   /** Transactional mail provider endpoint (e.g. https://api.resend.com/emails). */
@@ -70,9 +74,11 @@ export type AppEnv = { Bindings: Bindings; Variables: Variables };
 export function config(env: Bindings) {
   const appUrl = (env.APP_URL ?? "https://app.dynamic.crty-dev.com").replace(/\/+$/, "");
   const marketingUrl = (env.MARKETING_URL ?? "https://dynamic.crty-dev.com").replace(/\/+$/, "");
+  const authBaseUrl = (env.AUTH_BASE_URL ?? marketingUrl).replace(/\/+$/, "");
   return {
     appUrl,
     marketingUrl,
+    authBaseUrl,
     isDev: env.DEV_MODE === "1",
     maxSites: Number(env.MAX_SITES ?? 500),
     turnstile: {
@@ -90,10 +96,13 @@ export function config(env: Bindings) {
 
 /** Origins that may talk to the API with credentials. */
 export function allowedOrigins(env: Bindings): string[] {
-  const { appUrl, marketingUrl } = config(env);
+  const { appUrl, marketingUrl, authBaseUrl } = config(env);
   return [
     appUrl,
     marketingUrl,
+    authBaseUrl,
+    // The Better Auth dashboard calls /api/auth straight from the browser.
+    "https://dash.better-auth.com",
     "http://localhost:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5173",
