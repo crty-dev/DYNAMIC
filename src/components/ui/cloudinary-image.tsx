@@ -29,7 +29,7 @@ export function CloudinaryImage({
   decoding = "async",
 }: CloudinaryImageProps) {
   const build = (targetWidth: number) => {
-    let image = cloudinary.image(publicId).format("auto").quality("auto");
+    const image = cloudinary.image(publicId).format("auto").quality("auto");
     const box = height ? fit().width(targetWidth).height(height) : fit().width(targetWidth);
     return image.resize(box);
   };

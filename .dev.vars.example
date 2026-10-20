@@ -1,18 +1,29 @@
 # Local dev secrets — copy to .dev.vars and fill in.
 #   cp .dev.vars.example .dev.vars
 #
-# Then paste your Cloudinary API secret (console → API Keys → dynamic-dev → API Secret)
-# and run the one-time link-up:
-#   npm run cloudinary:link
-# It verifies the credential, writes .dev.vars, pushes the Worker secrets and
-# creates the upload preset.
+# This file is git-ignored. Never commit real secrets.
+# Production equivalents live in the Worker secret store:
+#   npx wrangler secret put ADMIN_API_KEY
+#   npx wrangler secret put MEDIA_UPLOAD_TOKEN
+#   npx wrangler secret put CLOUDINARY_URL
 
-CLOUDINARY_URL=cloudinary://657115753521274:<API_SECRET>@di9c12gg6
-
-# Public values (also set in wrangler.jsonc "vars")
+# --- Public values (also in wrangler.jsonc "vars") ---
 CLOUDINARY_CLOUD_NAME=di9c12gg6
 CLOUDINARY_UPLOAD_KEY=657115753521274
 
+# --- Secrets (never commit) ---
+
+# Cloudinary credential: cloudinary://<api_key>:<api_secret>@<cloud>
+# Needed only if you use the media endpoints (/api/media/*).
+# Get it from the Cloudinary console: API Keys -> your key -> API Secret.
+# Then run: npm run cloudinary:link
+CLOUDINARY_URL=cloudinary://657115753521274:<API_SECRET>@di9c12gg6
+
 # Bearer token that guards POST /api/media/upload and /api/media/signature.
-# `npm run cloudinary:link` generates and syncs this one for you.
+# Generate: node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
 MEDIA_UPLOAD_TOKEN=<GENERATE_A_RANDOM_TOKEN>
+
+# Bearer token that guards every /api/admin/* route (site management, goals,
+# retention purge, data export and erasure). Required for the admin API.
+# Generate: node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
+ADMIN_API_KEY=<GENERATE_A_RANDOM_TOKEN>

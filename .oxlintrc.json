@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": [
+    "dist/**",
+    "public/js/**",
+    ".wrangler/**",
+    "node_modules/**",
+    "assets/**",
+    "images/**",
+    "template/**",
+    "prototip/**",
+    "Dashborad-template/**"
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "rules": {
+    "no-console": "off",
+    "no-empty": "off",
+    "eqeqeq": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "eslint/no-await-in-loop": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/no-array-sort": "off",
+    "oxc/no-map-spread": "off"
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2024": true
+  }
+}

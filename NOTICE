@@ -1,0 +1,48 @@
+DYNAMIC
+Copyright (c) 2026 DYNAMIC Contributors
+
+This product is licensed under the MIT License (see LICENSE).
+
+--------------------------------------------------------------------------------
+Third-party notices
+--------------------------------------------------------------------------------
+
+Flatlogic — react-dashboard (admin template) and the "Vaultflow" landing
+reference layout
+  Copyright © 2015-present Flatlogic, LLC. All rights reserved.
+  Licensed under the MIT License.
+  https://flatlogic.com/admin-dashboards
+
+  The console layout in `src/console/` (fixed sidebar, sticky header, widget
+  grid, table styling) and the prototype files in `prototip/` and `template/`
+  are derived from the Flatlogic "react-dashboard" template. The MIT licence
+  permits use, modification and redistribution provided the copyright notice
+  and permission notice are retained. The original licence text travels with
+  the files in `template/`; this file keeps the notice for the parts that were
+  re-implemented.
+
+  The template itself is not vendored into the published package: the console
+  is an independent re-implementation on the project's own stack.
+
+Google web-vitals
+  Copyright 2020 Google LLC
+  Licensed under the Apache License 2.0
+  https://github.com/GoogleChrome/web-vitals
+  Bundled into `public/js/dynamic.js`.
+
+Montserrat
+  Copyright 2011 The Montserrat Project Authors
+  Licensed under the SIL Open Font License 1.1
+  https://github.com/JulietaUla/Montserrat
+
+JetBrains Mono
+  Copyright 2020 The JetBrains Mono Project Authors
+  Licensed under the SIL Open Font License 1.1
+  https://github.com/JetBrains/JetBrainsMono
+
+The font licence texts are shipped next to the fonts in `public/fonts/` and in
+`assets/brand/fonts/`.
+
+All remaining dependencies are permissive (MIT / ISC / BSD / Apache-2.0) or
+weak copyleft used unmodified as a build-time only dependency. Run
+`npm run license:audit` for the current table.

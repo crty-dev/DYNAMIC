@@ -93,7 +93,7 @@ async function assetExists(publicId) {
 async function api(pathname, init = {}) {
   const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}${pathname}`, {
     ...init,
-    headers: { authorization: auth, "content-type": "application/json", ...(init.headers ?? {}) },
+    headers: { authorization: auth, "content-type": "application/json", ...init.headers },
   });
   const text = await response.text();
   let body = {};

@@ -45,10 +45,8 @@ function createSandbox(options = {}) {
     setTimeout: () => 0,
     clearTimeout: () => {},
     performance: { now: () => 1700000000000 },
-    Blob: class {
-      constructor(parts) {
-        this.parts = parts;
-      }
+    Blob: function BlobStub(parts) {
+      this.parts = parts;
     },
     addEventListenerSpy: true,
   };

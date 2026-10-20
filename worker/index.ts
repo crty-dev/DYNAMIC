@@ -28,6 +28,7 @@ type Site = {
   public_id: string;
   name: string;
   origin: string;
+  created_at: number;
   retention_days: number;
   daily_event_limit: number;
   events_today: number;
@@ -171,6 +172,8 @@ const PII_KEYS = new Set([
    Normalizers
    ========================================================================== */
 
+// Control characters are stripped from user supplied strings (User-Agent, tags).
+// oxlint-disable-next-line eslint/no-control-regex
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
 
 /** Normalize any http(s) URL to its origin; returns null for invalid values. */
@@ -421,7 +424,7 @@ async function readBinary(
    ========================================================================== */
 
 const SITE_COLUMNS =
-  "id, public_id, name, origin, retention_days, daily_event_limit, events_today, counter_day";
+  "id, public_id, name, origin, created_at, retention_days, daily_event_limit, events_today, counter_day";
 
 async function siteByOrigin(db: D1Database, origin: string): Promise<Site | null> {
   return db
@@ -562,6 +565,64 @@ function unauthorized(c: Context<AppEnv>) {
 }
 
 /* ==========================================================================
+   Rate limiting — best effort, in-isolate, no D1 cost
+   ========================================================================== */
+
+/**
+ * The Free plan must not pay a D1 write per request, so the hot path is
+ * protected by an in-memory sliding window. It is per-isolate and therefore
+ * best effort: the hard, global cap is the site's daily event quota in D1.
+ * Put a Cloudflare rate limiting rule in front of /api/collect for a global
+ * limit (see docs/DEPLOYMENT.md).
+ */
+type RateBucket = { count: number; resetAt: number };
+const rateBuckets = new Map<string, RateBucket>();
+
+export function rateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): { allowed: boolean; retryAfter: number } {
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    rateBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    if (rateBuckets.size > 5000) {
+      for (const [entryKey, entry] of rateBuckets) {
+        if (entry.resetAt <= now) rateBuckets.delete(entryKey);
+      }
+    }
+    return { allowed: true, retryAfter: 0 };
+  }
+  bucket.count += 1;
+  if (bucket.count > limit) {
+    return { allowed: false, retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) };
+  }
+  return { allowed: true, retryAfter: 0 };
+}
+
+/** The visitor IP as seen by the edge (empty string for server-to-server calls). */
+function clientIp(c: Context<AppEnv>): string {
+  return (
+    c.req.header("cf-connecting-ip") ??
+    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+    ""
+  );
+}
+
+function tooManyRequests(c: Context<AppEnv>, retryAfter: number) {
+  c.header("Retry-After", String(retryAfter));
+  return c.json(
+    {
+      error: "rate_limited",
+      retryAfter,
+      message: "Too many requests. Slow down and try again shortly.",
+    },
+    429,
+  );
+}
+
+/* ==========================================================================
    CORS + origin capture for the public ingest endpoint
    ========================================================================== */
 
@@ -589,6 +650,10 @@ app.use("/api/collect", async (c, next) => {
     return c.body(null, 204);
   }
 
+  // Cheap protection before any body is read: 120 requests per minute per IP.
+  const limit = rateLimit(`collect:${clientIp(c) || "unknown"}`, 120, 60_000);
+  if (!limit.allowed) return tooManyRequests(c, limit.retryAfter);
+
   await next();
 });
 
@@ -601,6 +666,8 @@ app.use("/api/analytics/*", async (c, next) => {
     c.header("Access-Control-Allow-Origin", corsOrigin);
     c.header("Vary", "Origin");
   }
+  const limit = rateLimit(`analytics:${clientIp(c) || "unknown"}`, 60, 60_000);
+  if (!limit.allowed) return tooManyRequests(c, limit.retryAfter);
   await next();
 });
 
@@ -612,6 +679,8 @@ app.use("/api/rum/*", async (c, next) => {
     c.header("Access-Control-Allow-Origin", corsOrigin);
     c.header("Vary", "Origin");
   }
+  const limit = rateLimit(`rum:${clientIp(c) || "unknown"}`, 60, 60_000);
+  if (!limit.allowed) return tooManyRequests(c, limit.retryAfter);
   await next();
 });
 
@@ -1740,6 +1809,95 @@ app.post("/api/admin/sites/:id/purge", async (c) => {
     cutoff,
     deletedEvents: events.meta.changes ?? 0,
     deletedSessions: sessions.meta.changes ?? 0,
+  });
+});
+
+/**
+ * GET /api/admin/sites/:id/export — data portability (KVKK madde 11 / GDPR 20).
+ * Bounded pages: ?limit (max 1000) and ?offset keep the response and the D1
+ * read cost predictable.
+ */
+app.get("/api/admin/sites/:id/export", async (c) => {
+  const site = await siteById(c.env.DB, Number(c.req.param("id")));
+  if (!site) return c.json({ error: "not_found" }, 404);
+
+  const limit = parseLimit(c.req.query("limit"), 500, 1000);
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0) || 0);
+
+  const [sessions, events, goals] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT session_id, started_at, last_seen_at, pageviews, events, country, device, browser, os, referrer
+         FROM sessions WHERE site_id = ? ORDER BY started_at LIMIT ? OFFSET ?`,
+    )
+      .bind(site.id, limit, offset)
+      .all(),
+    c.env.DB.prepare(
+      `SELECT ts, metric, value, rating, path, country, ua, session_id, metric_id, goal,
+              referrer, utm_source, utm_medium, utm_campaign, device, browser, os
+         FROM events WHERE site_id = ? ORDER BY ts LIMIT ? OFFSET ?`,
+    )
+      .bind(site.id, limit, offset)
+      .all(),
+    goalsFor(c.env.DB, site.id),
+  ]);
+
+  const eventCount = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM events WHERE site_id = ?")
+    .bind(site.id)
+    .all<{ n: number }>();
+
+  return c.json({
+    ok: true,
+    exportedAt: Date.now(),
+    site: {
+      id: site.public_id,
+      name: site.name,
+      origin: site.origin,
+      createdAt: site.created_at ?? null,
+      retentionDays: site.retention_days,
+    },
+    totals: {
+      events: eventCount.results[0]?.n ?? 0,
+      sessions: sessions.results.length,
+    },
+    sessions: sessions.results,
+    events: events.results,
+    goals,
+    pagination: { limit, offset, nextOffset: offset + limit },
+  });
+});
+
+/**
+ * DELETE /api/admin/sites/:id — right to erasure (KVKK madde 7 / GDPR 17).
+ * Requires ?confirm=<public id> so a wrong call cannot wipe a site.
+ */
+app.delete("/api/admin/sites/:id", async (c) => {
+  const site = await siteById(c.env.DB, Number(c.req.param("id")));
+  if (!site) return c.json({ error: "not_found" }, 404);
+  if (c.req.query("confirm") !== site.public_id) {
+    return c.json(
+      {
+        error: "confirmation_required",
+        message: `Append ?confirm=${site.public_id} to erase this site and all of its data.`,
+      },
+      400,
+    );
+  }
+
+  const [events, sessions, goals] = await Promise.all([
+    c.env.DB.prepare("DELETE FROM events WHERE site_id = ?").bind(site.id).run(),
+    c.env.DB.prepare("DELETE FROM sessions WHERE site_id = ?").bind(site.id).run(),
+    c.env.DB.prepare("DELETE FROM goals WHERE site_id = ?").bind(site.id).run(),
+  ]);
+  await c.env.DB.prepare("DELETE FROM sites WHERE id = ?").bind(site.id).run();
+
+  return c.json({
+    ok: true,
+    erased: {
+      site: site.public_id,
+      events: events.meta.changes ?? 0,
+      sessions: sessions.meta.changes ?? 0,
+      goals: goals.meta.changes ?? 0,
+    },
   });
 });
 

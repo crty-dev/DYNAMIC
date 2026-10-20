@@ -1,7 +1,11 @@
 /* ==========================================================================
-   DYNAMIC Console — the Flatlogic "react-dashboard" layout, re-skinned with
+   DYNAMIC Console - the Flatlogic "react-dashboard" layout, re-skinned with
    the DYNAMIC palette: fixed sidebar, sticky header, widget grid.
    Flat surfaces, 1px borders, no glow.
+
+   The layout is adapted from Flatlogic's "react-dashboard" admin template
+   (https://flatlogic.com/admin-dashboards), Copyright (c) 2015-present
+   Flatlogic, LLC, MIT licensed. See NOTICE for the full attribution.
    ========================================================================== */
 
 .console {

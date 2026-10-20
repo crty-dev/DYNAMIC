@@ -1,5 +1,9 @@
 # DYNAMIC
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](LICENSE)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange.svg)](docs/DEPLOYMENT.md)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](tsconfig.json)
+
 Modern, gizlilik odaklı web analitiği ve gerçek kullanıcı performans ölçümü (RUM) platformu.
 
 **Hedefler**
@@ -24,7 +28,63 @@ Modern, gizlilik odaklı web analitiği ve gerçek kullanıcı performans ölç�
 
 - Mimari denetim ve teknoloji kararları: `docs/ARCHITECTURE.md`
 - Görev listesi / yol haritası: `docs/ROADMAP.md`
+- Dağıtım, self-hosting, Free limitleri ve geri alma: `docs/DEPLOYMENT.md`
+- Gizlilik / KVKK değerlendirmesi: `docs/PRIVACY.md`
+- Bağımlılık lisansları: `docs/LICENSES.md`
 - Marka varlıkları: `assets/brand/` (aşağıya bakın)
+
+## Kurulum
+
+```bash
+git clone https://github.com/crty-dev/DYNAMIC.git
+cd DYNAMIC
+npm install
+cp .dev.vars.example .dev.vars     # secret'ları doldurun
+npm run db:migrate:local            # yerel D1 şeması
+npm run dev                         # http://localhost:5173
+```
+
+Ücretli bir Cloudflare hesabı gerekmez. Ayrıntılar ve üretim dağıtımı için
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+| Komut | Ne yapar |
+| --- | --- |
+| `npm run dev` | Geliştirme sunucusu (SDK dahil). |
+| `npm run build` | Üretim çıktısı (`dist/`). |
+| `npm run typecheck` | `tsc --noEmit` (uygulama + Worker). |
+| `npm run lint` | oxlint. |
+| `npm test` | 24 test (SDK, API, build) — gerçek `wrangler dev` + yerel D1. |
+| `npm run license:audit` | Bağımlılık lisans tablosu. |
+| `npm run deploy` | Cloudflare'a yayınlar. |
+
+## Cloudflare Free limitleri
+
+| Kaynak | Free limit | DYNAMIC'in kullanımı |
+| --- | --- | --- |
+| Workers istekleri | 100.000 / gün | SDK sayfa başına 1 istek (5 sn'de bir toplu gönderim). |
+| D1 satır okuma | 5M / gün | Her sorgu `site_id` + zaman aralığı ile sınırlı. |
+| D1 satır yazma | 100.000 / gün | 1 event = 1 satır; site başına günlük kota 25.000. |
+| D1 depolama | 5 GB | 30 günlük saklama. |
+| Static Assets | ücretsiz | `dist/` ≈ 900 KB. |
+| Cron | 5 | 1 (günlük retention temizliği). |
+| R2 | 10 GB | **Kullanılmıyor** (medya Cloudinary'de). |
+
+Tablo ve self-hosting adımları: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+## Açık kaynak
+
+- Lisans: [MIT](LICENSE) — ticari kullanım, değiştirme ve dağıtım serbest.
+- Katkı: [CONTRIBUTING.md](CONTRIBUTING.md) · Güvenlik: [SECURITY.md](SECURITY.md) ·
+  Davranış kuralları: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) ·
+  Sürüm geçmişi: [CHANGELOG.md](CHANGELOG.md)
+- Üçüncü taraf bildirimler: [NOTICE](NOTICE) · lisans denetimi:
+  `npm run license:audit` (28 bağımlılık, 0 uyumsuz).
+- Gizlilik/KVKK: [docs/PRIVACY.md](docs/PRIVACY.md) — çerez yok, IP saklanmaz,
+  kişisel veri toplanmaz; veri dışa aktarma ve silme uçları mevcuttur.
+
+**Kredi ve atıf:** konsol düzeni Flatlogic "react-dashboard" (MIT) şablonundan
+uyarlanmıştır; SDK Google `web-vitals` (Apache-2.0) paketini içerir; fontlar
+SIL OFL'dir. Ayrıntılar [NOTICE](NOTICE) dosyasında.
 
 ## Collect API (v1)
 

@@ -209,7 +209,7 @@ export default function HalftoneWordmarkFooter({
   height = "560px",
   className = "",
 }: HalftoneWordmarkFooterProps) {
-  const colors = { ...(PRESETS[preset] || PRESETS.night), ...(palette || {}) };
+  const colors = { ...(PRESETS[preset] || PRESETS.night), ...palette };
   const rootRef = React.useRef(null as HTMLElement | null);
   const canvasRef = React.useRef(null as HTMLCanvasElement | null);
   const opts = React.useRef({ colors, dotGap, radius, crop, grain, interactive, fontFamily, fontWeight, wordmark });

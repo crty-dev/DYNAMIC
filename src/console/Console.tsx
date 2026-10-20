@@ -1,3 +1,11 @@
+/**
+ * DYNAMIC Console.
+ *
+ * The shell (fixed sidebar with grouped navigation, sticky header with search
+ * and range switcher, widget grid, table styling) is adapted from Flatlogic's
+ * "react-dashboard" admin template — Copyright (c) 2015-present Flatlogic, LLC,
+ * MIT licensed. See NOTICE for the full attribution.
+ */
 import { useMemo, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router";
 import {

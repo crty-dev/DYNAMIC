@@ -164,7 +164,6 @@ const round = (n) => Math.round(n * 1000) / 1000;
 function textD(text, key, capTarget, tracking = 0) {
   const f = fonts[key];
   const run = f.layout(text);
-  const upm = f.unitsPerEm;
   const s = capTarget / capUnits(key);
   const parts = [];
   let pen = 0;
@@ -368,10 +367,6 @@ function raster(svgString, width, out) {
   fs.writeFileSync(out, r.render().asPng());
   console.log("png  ", path.relative(ROOT, out));
 }
-const copy = (from, to) => {
-  fs.copyFileSync(from, to);
-  console.log("copy ", path.relative(ROOT, to));
-};
 
 /* ------------------------------------------------------------------ *
  * Build

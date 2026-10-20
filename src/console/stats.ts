@@ -63,7 +63,7 @@ export type RumPage = { path: string; samples: number; avg: number | null; p75: 
 export const fmtInt = (n: number): string => n.toLocaleString("en-US");
 
 export function fmtMetric(metric: string, value: number | null): string {
-  if (value == null) return "—";
+  if (value === null || value === undefined) return "—";
   if (metric === "CLS") return value.toFixed(3);
   if (value >= 1000) return `${(value / 1000).toFixed(1)} s`;
   return `${Math.round(value)} ms`;

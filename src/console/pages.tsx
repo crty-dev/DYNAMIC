@@ -722,11 +722,12 @@ export function Settings() {
           </h2>
         </header>
         <div className="console__card-body">
+          {/* The snippet is rendered as text, so the closing tag needs no escaping. */}
           <pre className="console__code">{`<script
   async
   src="https://dynamic.crty-dev.com/js/dynamic.js"
   data-site="${site?.id ?? "your-site-key"}"
-><\/script>`}</pre>
+></script>`}</pre>
           <p className="console__note">
             Analytics and Web Vitals in one snippet. No cookies, no personal data; the session id
             rotates and the visitor can opt out with{" "}

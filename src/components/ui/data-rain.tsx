@@ -171,7 +171,7 @@ export default function DataRain(props: DataRainProps) {
     const groupCount = new Int32Array(6);
 
     /* styles */
-    const strokeStyles: string[] = new Array<string>(6 * AGE_BUCKETS).fill("");
+    const strokeStyles: string[] = Array.from({ length: 6 * AGE_BUCKETS }, () => "");
     const strokeWidths = new Float32Array(6 * AGE_BUCKETS);
     const headStyles: string[] = ["", ""];
     let haloGradient: CanvasGradient | null = null;

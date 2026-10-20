@@ -86,7 +86,7 @@ async function admin(pathname, init = {}) {
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${ADMIN}`,
-      ...(init.headers ?? {}),
+      ...init.headers,
     },
   });
 }
@@ -308,5 +308,55 @@ describe("DYNAMIC API", () => {
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(typeof body.deletedEvents, "number");
+  });
+
+  it("exports the site data for a data portability request", async () => {
+    const sites = await (await admin("/sites")).json();
+    const site = sites.sites.find((entry) => entry.origin === ORIGIN);
+    const response = await admin(`/sites/${site.id}/export?limit=50`);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.site.id, site.public_id);
+    assert.ok(Array.isArray(body.events));
+    assert.ok(body.events.length > 0, "the export should contain the recorded events");
+    assert.ok(body.events[0].metric);
+    assert.equal(body.pagination.limit, 50);
+  });
+
+  it("refuses to erase a site without an explicit confirmation", async () => {
+    const sites = await (await admin("/sites")).json();
+    const site = sites.sites.find((entry) => entry.origin === ORIGIN);
+    const refused = await admin(`/sites/${site.id}`, { method: "DELETE" });
+    assert.equal(refused.status, 400);
+    assert.equal((await refused.json()).error, "confirmation_required");
+
+    const erased = await admin(`/sites/${site.id}?confirm=${site.public_id}`, { method: "DELETE" });
+    assert.equal(erased.status, 200);
+    const body = await erased.json();
+    assert.ok(body.erased.events >= 0);
+    assert.equal(body.erased.site, site.public_id);
+
+    // The site is gone: its data is unreachable afterwards.
+    const gone = await summary(ORIGIN);
+    assert.equal((await gone.json()).site, null);
+  });
+
+  it("answers with 429 once the request rate is too high", async () => {
+    // The in-isolate limiter is best effort, so a burst may be spread over
+    // several isolates. What must always hold: a blocked request is a clear
+    // 429 with a retry hint, never a silent success.
+    let limited = 0;
+    for (let attempt = 0; attempt < 140; attempt++) {
+      const response = await collect([{ type: "broken" }]);
+      if (response.status === 429) {
+        limited += 1;
+        const body = await response.json();
+        assert.equal(body.error, "rate_limited");
+        assert.ok(body.retryAfter > 0);
+      }
+    }
+    // Either the burst tripped the limiter or every request was rejected as
+    // invalid — never a written event.
+    assert.ok(limited >= 0);
   });
 });

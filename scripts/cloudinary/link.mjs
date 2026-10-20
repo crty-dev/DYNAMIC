@@ -109,7 +109,7 @@ function api(pathname, apiSecret, init = {}) {
   const auth = `Basic ${Buffer.from(`${API_KEY}:${apiSecret}`).toString("base64")}`;
   return fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}${pathname}`, {
     ...init,
-    headers: { authorization: auth, "content-type": "application/json", ...(init.headers ?? {}) },
+    headers: { authorization: auth, "content-type": "application/json", ...init.headers },
   });
 }
 
