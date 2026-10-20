@@ -29,6 +29,14 @@ export type Bindings = {
   TURNSTILE_SECRET_KEY?: string;
   /** Cloudflare Turnstile site key (public, sent to the browser). */
   TURNSTILE_SITE_KEY?: string;
+  /** GitHub OAuth app - client id. Enables the "GitHub ile devam et" button. */
+  GITHUB_CLIENT_ID?: string;
+  /** GitHub OAuth app - client secret. */
+  GITHUB_CLIENT_SECRET?: string;
+  /** Google OAuth client - client id. */
+  GOOGLE_CLIENT_ID?: string;
+  /** Google OAuth client - client secret. */
+  GOOGLE_CLIENT_SECRET?: string;
   /** DNS-over-HTTPS resolver used for the TXT verification. */
   DNS_RESOLVER_URL?: string;
   /** Enables the local mail outbox + relaxed dev behaviour. Never in production. */

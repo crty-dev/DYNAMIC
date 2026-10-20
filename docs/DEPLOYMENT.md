@@ -117,7 +117,33 @@ güvensiz bir oturum üretmez).
 Hiçbir sağlayıcı zorunlu değildir; projede ücretli bir servis zorunlu hâle
 getirilmez ve otomatik olarak ücretli plana geçilmez.
 
-### 5) DNS doğrulama kaydı
+### 5) Sosyal giriş (isteğe bağlı)
+
+Console'da "GitHub / Google ile devam et" düğmeleri **yalnızca** o sağlayıcının
+kimlik bilgileri tanımlıysa görünür (`GET /api/auth/providers` hangilerinin
+aktif olduğunu döner). Sağlayıcı başına iki secret gerekir:
+
+```bash
+npx wrangler secret put GITHUB_CLIENT_ID
+npx wrangler secret put GITHUB_CLIENT_SECRET
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+```
+
+Callback adresleri (OAuth uygulamasında tam olarak bu yazılmalı):
+
+| Sağlayıcı | Callback URL |
+| --- | --- |
+| GitHub | `https://dynamic.crty-dev.com/api/auth/callback/github` |
+| Google | `https://dynamic.crty-dev.com/api/auth/callback/google` |
+
+GitHub için *Settings → Developer settings → OAuth Apps → New OAuth App*,
+Google için *Google Cloud Console → APIs & Services → Credentials → OAuth
+client ID* kullanılır. GitHub'ın varsayılan kapsamı (`read:user`,
+`user:email`) doğrulamalı e-posta adresini getirdiği için sosyal girişle
+gelen hesaplar "doğrulanmamış" duruma düşmez.
+
+### 6) DNS doğrulama kaydı
 
 Kullanıcı, Console'da üretilen TXT kaydını alan adının DNS sağlayıcısına
 ekler:

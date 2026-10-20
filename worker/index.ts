@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { createAuth } from "./auth";
+import { createAuth, enabledSocialProviders } from "./auth";
 import {
   analyticsSummary,
   bucketCount,
@@ -2073,6 +2073,17 @@ const authHandler = async (c: Context<AppEnv>) => {
   }
   return response;
 };
+
+/**
+ * Which social providers are configured. The client uses it to decide whether
+ * to show the "GitHub / Google ile devam et" buttons - without credentials a
+ * provider stays invisible instead of failing.
+ *
+ * Registered before the Better Auth catch-all so it is not swallowed by it.
+ */
+app.get("/api/auth/providers", (c) =>
+  c.json({ providers: enabledSocialProviders(c.env) }),
+);
 
 /**
  * The base path is not a Better Auth route (it answers 404), but the

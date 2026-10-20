@@ -19,6 +19,20 @@ import { BETTER_AUTH_KV_URL } from "../src/lib/infra";
 type MailTarget = { user: { email: string; name?: string | null }; url: string };
 
 /**
+ * The social providers that are configured.
+ *
+ * A provider is only enabled when both of its credentials are present, so a
+ * self-hoster without OAuth apps keeps the plain e-mail login and never sees
+ * a broken button.
+ */
+export function enabledSocialProviders(env: Bindings): string[] {
+  const providers: string[] = [];
+  if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) providers.push("github");
+  if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) providers.push("google");
+  return providers;
+}
+
+/**
  * Builds the Better Auth options for the given bindings.
  *
  * Exported so the tests can assert the security relevant options (IP header,
@@ -28,6 +42,20 @@ export function buildAuthOptions(env: Bindings): BetterAuthOptions {
   const { appUrl, authBaseUrl, authSecret, turnstile, ipAddress } = config(env);
   const infraApiKey = env.BETTER_AUTH_API_KEY ?? "";
   const limitMax = Number(env.AUTH_RATE_LIMIT_MAX ?? 0) || null;
+  const social = enabledSocialProviders(env);
+  const socialProviders: NonNullable<BetterAuthOptions["socialProviders"]> = {};
+  if (social.includes("github")) {
+    socialProviders.github = {
+      clientId: env.GITHUB_CLIENT_ID ?? "",
+      clientSecret: env.GITHUB_CLIENT_SECRET ?? "",
+    };
+  }
+  if (social.includes("google")) {
+    socialProviders.google = {
+      clientId: env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: env.GOOGLE_CLIENT_SECRET ?? "",
+    };
+  }
   const plugins: NonNullable<BetterAuthOptions["plugins"]> = turnstile.secretKey
     ? [
         captcha({
@@ -125,6 +153,7 @@ export function buildAuthOptions(env: Bindings): BetterAuthOptions {
       "http://127.0.0.1:5173",
       "http://127.0.0.1:5174",
     ],
+    ...(Object.keys(socialProviders).length > 0 ? { socialProviders } : {}),
     rateLimit: {
       enabled: true,
       window: 60,

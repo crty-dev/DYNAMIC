@@ -52,6 +52,22 @@ MAIL_FROM=DYNAMIC <no-reply@mail.crty-dev.com>
 # TURNSTILE_SITE_KEY=<public site key>
 # TURNSTILE_SECRET_KEY=<secret key>
 
+# --- Social login (optional) ---
+# A provider is only enabled when BOTH of its values are set, and the console
+# only shows the button when the server really has the credentials.
+#
+# GitHub: Settings -> Developer settings -> OAuth Apps -> New OAuth App
+#   Authorization callback URL:
+#   https://dynamic.crty-dev.com/api/auth/callback/github
+# GITHUB_CLIENT_ID=
+# GITHUB_CLIENT_SECRET=
+#
+# Google: Google Cloud Console -> APIs & Services -> Credentials -> OAuth client
+#   Authorized redirect URI:
+#   https://dynamic.crty-dev.com/api/auth/callback/google
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=
+
 # DNS-over-HTTPS resolver used for the TXT verification (optional)
 # DNS_RESOLVER_URL=https://cloudflare-dns.com/dns-query
 

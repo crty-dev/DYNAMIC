@@ -197,8 +197,14 @@ describe("DYNAMIC application API", () => {
     assert.equal(signInResult.payload.code, "EMAIL_NOT_VERIFIED");
   });
 
-  it("verifies the e-mail, opens a secure session and signs out again", async () => {
-    const address = email("verified");
+  it("lists the social providers that are configured", async () => {
+    // The test server has no OAuth credentials, so no provider may show up.
+    const result = await api("/api/auth/providers");
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.payload.providers, []);
+  });
+
+  it("verifies the e-mail, opens a secure session and signs out again", async () => {    const address = email("verified");
     const { jar } = await register(address);
     await verify(address);
 

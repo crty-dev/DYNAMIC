@@ -28,11 +28,31 @@ export const authClient = createAuthClient({
 });
 
 /**
+ * The social providers the server has credentials for. The buttons only show
+ * up when the provider is really configured, so nobody sees a button that
+ * would fail.
+ */
+export async function fetchSocialProviders(): Promise<string[]> {
+  try {
+    const response = await fetch(`${API_ORIGIN}/api/auth/providers`, {
+      credentials: "include",
+    });
+    if (!response.ok) return [];
+    const payload = (await response.json()) as { providers?: unknown };
+    return Array.isArray(payload.providers)
+      ? payload.providers.filter((p): p is string => typeof p === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Where the application is mounted on this origin: "/" on the app domain,
  * "/app" when it is served from the marketing origin.
  */
 export const APP_BASE_PATH =
-  typeof window !== "undefined" && window.location.pathname.startsWith("/app") ? "/app" : "";
+  typeof window !== "undefined" && /^\/app(\/|$)/.test(window.location.pathname) ? "/app" : "";
 
 /* --------------------------------------------------------------- projects */
 

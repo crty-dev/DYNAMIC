@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowRight, Check, LogOut, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowRight, Check, LogOut, Mail, RefreshCw, Trash2, User } from "lucide-react";
 import {
   ApiError,
   APP_BASE_PATH,
@@ -11,7 +11,15 @@ import {
   type Project,
   type ProjectStats,
 } from "./api";
-import logoMark from "../../images/png-to-webp/logo-removebg-preview.webp";
+import {
+  AuthShell,
+  PasswordField,
+  SocialButtons,
+  StrengthMeter,
+  TextField,
+  useSocialProviders,
+} from "./auth-shell";
+import { PRIVACY_URL } from "../lib/app-url";
 
 /* ------------------------------------------------------------------ shared */
 
@@ -57,14 +65,20 @@ export function Login() {
   const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const providers = useSocialProviders();
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const { error: signInError } = await authClient.signIn.email({ email, password });
+    const { error: signInError } = await authClient.signIn.email({
+      email,
+      password,
+      rememberMe: remember,
+    });
     setBusy(false);
     if (signInError) {
       setError(
@@ -79,39 +93,41 @@ export function Login() {
   };
 
   return (
-    <div className="center">
+    <AuthShell>
       <div className="auth">
         <div className="auth__head">
-          <img src={logoMark} alt="" width={44} height={44} />
           <h1>Tekrar hoş geldiniz</h1>
           <p>Console&apos;a giriş yaparak devam edin.</p>
         </div>
+        <SocialButtons providers={providers} onError={setError} />
         <form className="card" onSubmit={submit}>
           {error ? <p className="alert alert--error">{error}</p> : null}
-          <label className="field">
-            <span className="field__label">E-posta</span>
+          <TextField
+            label="E-posta"
+            icon={<Mail size={16} aria-hidden />}
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="siz@alanadi.com"
+          />
+          <PasswordField
+            label="Şifre"
+            autoComplete="current-password"
+            required
+            minLength={10}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="••••••••••"
+          />
+          <label className="check">
             <input
-              className="field__input"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="siz@alanadi.com"
+              type="checkbox"
+              checked={remember}
+              onChange={(event) => setRemember(event.target.checked)}
             />
-          </label>
-          <label className="field">
-            <span className="field__label">Şifre</span>
-            <input
-              className="field__input"
-              type="password"
-              autoComplete="current-password"
-              required
-              minLength={10}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="••••••••••"
-            />
+            <span>Beni hatırla</span>
           </label>
           <button className="button button--block" type="submit" disabled={busy}>
             {busy ? "Giriş yapılıyor…" : "Giriş yap"}
@@ -124,7 +140,7 @@ export function Login() {
           Hesabınız yok mu? <Link to="/register">Kayıt olun</Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -137,6 +153,7 @@ export function Register() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const providers = useSocialProviders();
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -161,63 +178,60 @@ export function Register() {
   };
 
   return (
-    <div className="center">
+    <AuthShell>
       <div className="auth">
         <div className="auth__head">
-          <img src={logoMark} alt="" width={44} height={44} />
           <h1>Hesap oluşturun</h1>
           <p>Ücretsiz, çerezsiz, kendi altyapınızda.</p>
         </div>
+        <SocialButtons providers={providers} onError={setError} />
         <form className="card" onSubmit={submit}>
           {error ? <p className="alert alert--error">{error}</p> : null}
-          <label className="field">
-            <span className="field__label">Ad</span>
-            <input
-              className="field__input"
-              type="text"
-              autoComplete="name"
-              required
-              maxLength={80}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Adınız"
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">E-posta</span>
-            <input
-              className="field__input"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="siz@alanadi.com"
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Şifre</span>
-            <input
-              className="field__input"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={10}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="En az 10 karakter"
-            />
-            <span className="field__hint">En az 10 karakter. Uzun bir cümle iyi bir şifredir.</span>
-          </label>
+          <TextField
+            label="Ad"
+            icon={<User size={16} aria-hidden />}
+            type="text"
+            autoComplete="name"
+            required
+            maxLength={80}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Adınız"
+          />
+          <TextField
+            label="E-posta"
+            icon={<Mail size={16} aria-hidden />}
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="siz@alanadi.com"
+          />
+          <PasswordField
+            label="Şifre"
+            autoComplete="new-password"
+            required
+            minLength={10}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="En az 10 karakter"
+          />
+          <StrengthMeter password={password} />
+          <span className="field__hint">En az 10 karakter. Uzun bir cümle iyi bir şifredir.</span>
           <button className="button button--block" type="submit" disabled={busy}>
             {busy ? "Hesap oluşturuluyor…" : "Hesap oluştur"}
           </button>
         </form>
+        <p className="auth__legal">
+          Kayıt olarak <a href={PRIVACY_URL} target="_blank" rel="noreferrer">Gizlilik Politikası</a>
+          &apos;nı kabul etmiş olursunuz. Hesabınızı istediğiniz zaman silebilirsiniz.
+        </p>
         <p className="auth__foot">
           Zaten hesabınız var mı? <Link to="/login">Giriş yapın</Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -250,10 +264,9 @@ export function VerifyEmail() {
   };
 
   return (
-    <div className="center">
+    <AuthShell>
       <div className="auth">
         <div className="auth__head">
-          <img src={logoMark} alt="" width={44} height={44} />
           <h1>E-postanızı doğrulayın</h1>
           <p>
             {session.data?.user?.email
@@ -278,7 +291,7 @@ export function VerifyEmail() {
           </button>
         </div>
       </div>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -307,10 +320,9 @@ export function ForgotPassword() {
   };
 
   return (
-    <div className="center">
+    <AuthShell>
       <div className="auth">
         <div className="auth__head">
-          <img src={logoMark} alt="" width={44} height={44} />
           <h1>Şifrenizi sıfırlayın</h1>
           <p>Hesabınızın e-posta adresini girin, sıfırlama bağlantısı gönderelim.</p>
         </div>
@@ -322,18 +334,16 @@ export function ForgotPassword() {
             </p>
           ) : null}
           {error ? <p className="alert alert--error">{error}</p> : null}
-          <label className="field">
-            <span className="field__label">E-posta</span>
-            <input
-              className="field__input"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="siz@alanadi.com"
-            />
-          </label>
+          <TextField
+            label="E-posta"
+            icon={<Mail size={16} aria-hidden />}
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="siz@alanadi.com"
+          />
           <button className="button button--block" type="submit" disabled={busy}>
             {busy ? "Gönderiliyor…" : "Sıfırlama bağlantısı gönder"}
           </button>
@@ -342,7 +352,7 @@ export function ForgotPassword() {
           <Link to="/login">Giriş ekranına dön</Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -377,10 +387,9 @@ export function ResetPassword() {
   };
 
   return (
-    <div className="center">
+    <AuthShell>
       <div className="auth">
         <div className="auth__head">
-          <img src={logoMark} alt="" width={44} height={44} />
           <h1>Yeni şifre belirleyin</h1>
           <p>En az 10 karakterli, daha önce kullanmadığınız bir şifre seçin.</p>
         </div>
@@ -391,25 +400,21 @@ export function ResetPassword() {
               Sıfırlama bağlantısı eksik. Lütfen e-postadaki bağlantıyı kullanın.
             </p>
           ) : null}
-          <label className="field">
-            <span className="field__label">Yeni şifre</span>
-            <input
-              className="field__input"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={10}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="En az 10 karakter"
-            />
-          </label>
+          <PasswordField
+            label="Yeni şifre"
+            autoComplete="new-password"
+            required
+            minLength={10}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="En az 10 karakter"
+          />
           <button className="button button--block" type="submit" disabled={busy || !token}>
             {busy ? "Kaydediliyor…" : "Şifreyi kaydet"}
           </button>
         </form>
       </div>
-    </div>
+    </AuthShell>
   );
 }
 
