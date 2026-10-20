@@ -4,8 +4,8 @@
   "description": "Open-source, privacy-first web analytics and real-user monitoring on Cloudflare Workers.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#010c18",
-  "theme_color": "#010c18",
+  "background_color": "#0b1d2f",
+  "theme_color": "#0b1d2f",
   "icons": [
     {
       "src": "/brand/icon-192.png",

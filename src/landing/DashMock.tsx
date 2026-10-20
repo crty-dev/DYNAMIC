@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, type PointerEvent } from "react";
 import {
   Activity,
   BarChart3,
@@ -85,8 +85,21 @@ export default function DashMock() {
     () => SERIES.map((y, i) => ({ x: (i / (SERIES.length - 1)) * (W - 12) + 6, y })),
     [],
   );
+  const [active, setActive] = useState(SERIES.length - 1);
   const line = smoothPath(pts);
   const last = pts[pts.length - 1];
+  const activePoint = pts[active];
+  const activeValue = 19000 + Math.round((208 - activePoint.y) * 9.19);
+  const activeLabel = activeValue.toLocaleString("en-US");
+
+  const pickPoint = (event: PointerEvent<SVGRectElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+    const x = ((event.clientX - rect.left) / rect.width) * W;
+    const index = Math.round(((x - 6) / (W - 12)) * (SERIES.length - 1));
+    setActive(Math.max(0, Math.min(SERIES.length - 1, index)));
+  };
+  const resetPoint = () => setActive(SERIES.length - 1);
 
   return (
     <div className="dash">
@@ -170,19 +183,18 @@ export default function DashMock() {
             <svg viewBox={`0 0 ${W} ${H}`} aria-hidden>
               <defs>
                 <linearGradient id="dash-line" x1="0" y1="0" x2={W} y2="0" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stopColor="#1d72fc" />
-                  <stop offset="1" stopColor="#24d2cd" />
-                </linearGradient>
-                <linearGradient id="dash-area" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stopColor="#24d2cd" stopOpacity="0.30" />
-                  <stop offset="0.7" stopColor="#1d72fc" stopOpacity="0.10" />
-                  <stop offset="1" stopColor="#1d72fc" stopOpacity="0" />
+                  <stop offset="0" stopColor="#1d70fd" />
+                  <stop offset="1" stopColor="#23d8ca" />
                 </linearGradient>
               </defs>
               {[48, 100, 152, 204].map((gy) => (
                 <line key={gy} x1="0" x2={W} y1={gy} y2={gy} stroke="rgba(255,255,255,0.055)" strokeWidth="1" />
               ))}
-              <path className="dash__area" d={`${line} L ${last.x + 6} 208 L 6 208 Z`} fill="url(#dash-area)" />
+              <path
+                className="dash__area"
+                d={`${line} L ${last.x + 6} 208 L 6 208 Z`}
+                fill="rgba(35, 216, 202, 0.08)"
+              />
               <path
                 className="dash__line"
                 d={line}
@@ -192,12 +204,30 @@ export default function DashMock() {
                 strokeLinecap="round"
                 pathLength={1}
               />
-              <circle className="dash__pulse-ring" cx={last.x} cy={last.y} r="5" />
-              <circle className="dash__pulse" cx={last.x} cy={last.y} r="4.2" />
+              <line
+                className="dash__guide"
+                x1={activePoint.x}
+                x2={activePoint.x}
+                y1="18"
+                y2="208"
+              />
+              <circle className="dash__pulse-ring" cx={activePoint.x} cy={activePoint.y} r="5" />
+              <circle className="dash__pulse" cx={activePoint.x} cy={activePoint.y} r="4.2" />
+              <rect
+                className="dash__hit"
+                x="0"
+                y="0"
+                width={W}
+                height={H}
+                fill="rgba(0,0,0,0)"
+                pointerEvents="all"
+                onPointerMove={pickPoint}
+                onPointerLeave={resetPoint}
+              />
             </svg>
             <div className="dash__tip" aria-hidden>
-              <b>20,342</b>
-              <span>visitors · today</span>
+              <b>{activeLabel}</b>
+              <span>visitors · 7d</span>
             </div>
           </div>
 

@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 427 120" width="427" height="120">
   <defs>
     <linearGradient id="dg" x1="1000" y1="40" x2="60" y2="1170" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#24d2cd"/>
-      <stop offset="0.5" stop-color="#20a7df"/>
-      <stop offset="1" stop-color="#1d72fc"/>
+      <stop offset="0" stop-color="#23d8ca"/>
+      <stop offset="0.5" stop-color="#20a9de"/>
+      <stop offset="1" stop-color="#1d70fd"/>
     </linearGradient>
     <radialGradient id="tileGlow" cx="0.85" cy="0.08" r="1">
-      <stop offset="0" stop-color="#1d72fc" stop-opacity="0.30"/>
-      <stop offset="0.5" stop-color="#24d2cd" stop-opacity="0.06"/>
-      <stop offset="1" stop-color="#24d2cd" stop-opacity="0"/>
+      <stop offset="0" stop-color="#1d70fd" stop-opacity="0.30"/>
+      <stop offset="0.5" stop-color="#23d8ca" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#23d8ca" stop-opacity="0"/>
     </radialGradient>
     <clipPath id="holeClip"><path d="M 250,240 A 360,360 0 0 1 250,960 Z"/></clipPath>
     <mask id="rumCut" maskUnits="userSpaceOnUse" x="-200" y="-200" width="1400" height="1600">

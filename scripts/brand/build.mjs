@@ -37,19 +37,20 @@ const DIR = {
 for (const d of Object.values(DIR)) fs.mkdirSync(d, { recursive: true });
 
 /* ------------------------------------------------------------------ *
- * Palette — source of truth: images/renkler.txt (extracted from
- * images/Palette.svg). Never introduce colors outside this family.
+ * Palette — 2026 site refresh. The blue/cyan/teal/ink values are the
+ * brand owner's authoritative set; the remaining tokens are derived
+ * support shades used only inside generated assets.
  * ------------------------------------------------------------------ */
 const C = {
-  blue: "#1d72fc",
-  blue2: "#1e82f4",
-  teal: "#24d2cd",
-  cyan: "#20a7df",
+  blue: "#1d70fd",
+  blue2: "#1e87f1",
+  teal: "#23d8ca",
+  cyan: "#20a9de",
   deep: "#0f515d",
-  sky: "#23bcd5",
-  ink: "#010c18",
-  navy: "#0a3261",
-  azure: "#1f92eb",
+  sky: "#22bad6",
+  ink: "#0b1d2f",
+  navy: "#0b1d2f",
+  azure: "#1f97e8",
   /** near-white text used on dark surfaces */
   inkText: "#eaf4ff",
 };
@@ -201,7 +202,7 @@ function lockup({ product = null, productName = null, onDark = true, slash = !pr
   const capsH = product ? 30 : 44;
   const track = product ? 0 : 2;
   const ink = onDark ? C.inkText : C.ink;
-  const sub = onDark ? "rgba(234,244,255,0.66)" : "rgba(1,12,24,0.62)";
+  const sub = onDark ? "rgba(234,244,255,0.66)" : "rgba(11,29,47,0.62)";
   const scale = symH / 1200;
   const symW = 1000 * scale;
   const baseline = H / 2 + capsH / 2;
@@ -216,7 +217,7 @@ function lockup({ product = null, productName = null, onDark = true, slash = !pr
   if (product) {
     const lineX = w + symH * 0.28;
     parts.push(
-      `<line x1="${round(lineX)}" y1="${round((H - capsH) / 2)}" x2="${round(lineX)}" y2="${round((H + capsH) / 2)}" stroke="${onDark ? "rgba(234,244,255,0.25)" : "rgba(1,12,24,0.22)"}" stroke-width="2"/>`,
+      `<line x1="${round(lineX)}" y1="${round((H - capsH) / 2)}" x2="${round(lineX)}" y2="${round((H + capsH) / 2)}" stroke="${onDark ? "rgba(234,244,255,0.25)" : "rgba(11,29,47,0.22)"}" stroke-width="2"/>`,
     );
     const pn = textD(productName || product, 500, capsH, 0.6);
     const pnX = lineX + symH * 0.28;
@@ -242,10 +243,10 @@ function tileSvg({ rx = 112, dScale = 0.3167 } = {}) {
   const x = (512 - w) / 2;
   const y = (512 - h) / 2;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">${DEFS}
-  <rect width="512" height="512" rx="${rx}" fill="#020d1b"/>
+  <rect width="512" height="512" rx="${rx}" fill="#081827"/>
   <rect width="512" height="512" rx="${rx}" fill="url(#tileGlow)"/>
   <g transform="translate(${round(x)},${round(y)}) scale(${dScale})"><path fill="url(#dg)" fill-rule="evenodd" d="${PLAIN_D}"/></g>
-  ${rx ? `<rect x="2" y="2" width="508" height="508" rx="${rx - 2}" fill="none" stroke="#9ecbff" stroke-opacity="0.12" stroke-width="3"/>` : ""}
+  ${rx ? `<rect x="2" y="2" width="508" height="508" rx="${rx - 2}" fill="none" stroke="#20a9de" stroke-opacity="0.12" stroke-width="3"/>` : ""}
 </svg>`;
 }
 
@@ -265,7 +266,7 @@ function bannerBase(w, h) {
 const BANNER_DEFS = `
   <defs>
     <linearGradient id="bgbg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#051428"/>
+      <stop offset="0" stop-color="#081827"/>
       <stop offset="1" stop-color="${C.ink}"/>
     </linearGradient>
     <radialGradient id="glowT" cx="0.85" cy="0.02" r="0.8">
@@ -280,7 +281,7 @@ const BANNER_DEFS = `
 
 function domainPill(cx, y, { w = 400, h = 56, text = "dynamic.crty-dev.com" } = {}) {
   const t = T(text, 600, 20, cx, y + h / 2 + 7, C.sky, { anchor: "middle" });
-  return `<rect x="${round(cx - w / 2)}" y="${y}" width="${w}" height="${h}" rx="${h / 2}" fill="rgba(36,210,205,0.07)" stroke="rgba(36,210,205,0.38)" stroke-width="1.5"/>${t.el}`;
+  return `<rect x="${round(cx - w / 2)}" y="${y}" width="${w}" height="${h}" rx="${h / 2}" fill="rgba(35,216,202,0.07)" stroke="rgba(35,216,202,0.38)" stroke-width="1.5"/>${t.el}`;
 }
 
 function watermarkD(w, h, { size = 720, x = null, opacity = 0.07, slash = true } = {}) {
@@ -342,7 +343,7 @@ function announceSvg() {
     watermarkD(w, h, { size: 700, x: 80, opacity: 0.06 }),
     watermarkD(w, h, { size: 700, x: w - 700 * 1000 / 1200 - 80, opacity: 0.06 }),
     `<g transform="translate(${round((w - L.w) / 2)},210)">${L.content}</g>`,
-    `<rect x="${round(w / 2 - badge.w / 2 - 36)}" y="430" width="${round(badge.w + 72)}" height="64" rx="32" fill="rgba(36,210,205,0.08)" stroke="rgba(36,210,205,0.4)" stroke-width="1.5"/>`,
+    `<rect x="${round(w / 2 - badge.w / 2 - 36)}" y="430" width="${round(badge.w + 72)}" height="64" rx="32" fill="rgba(35,216,202,0.08)" stroke="rgba(35,216,202,0.4)" stroke-width="1.5"/>`,
     badge.el,
     T("Privacy-first analytics & RUM — free forever, on Cloudflare's free tier.", 500, 30, w / 2, 582, "rgba(234,244,255,0.7)", { anchor: "middle" }).el,
     domainPill(w / 2, 640, { w: 420, h: 56 }),

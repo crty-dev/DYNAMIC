@@ -1,16 +1,48 @@
 @import "tailwindcss";
 
-/* DYNAMIC marka paleti — kaynak: images/renkler.txt + Palette.svg */
+/* Self-hosted brand fonts (SIL OFL) — keeps the site free of third-party requests. */
+@font-face {
+  font-family: "Montserrat";
+  src: url("../assets/brand/fonts/Montserrat-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("../assets/brand/fonts/Montserrat-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("../assets/brand/fonts/Montserrat-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../assets/brand/fonts/JetBrainsMono-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* DYNAMIC 2026 site paleti */
 @theme {
-  --color-dyn-blue: #1d72fc;
-  --color-dyn-blue2: #1e82f4;
-  --color-dyn-teal: #24d2cd;
-  --color-dyn-cyan: #20a7df;
+  --color-dyn-blue: #1d70fd;
+  --color-dyn-blue2: #1e87f1;
+  --color-dyn-blue3: #1f97e8;
+  --color-dyn-teal: #23d8ca;
+  --color-dyn-cyan: #20a9de;
+  --color-dyn-cyan2: #22bad6;
   --color-dyn-deep: #0f515d;
-  --color-dyn-sky: #23bcd5;
-  --color-dyn-ink: #010c18;
-  --color-dyn-navy: #0a3261;
-  --color-dyn-azure: #1f92eb;
+  --color-dyn-sky: #22bad6;
+  --color-dyn-ink: #0b1d2f;
+  --color-dyn-navy: #0b1d2f;
+  --color-dyn-azure: #1f97e8;
 }
 
 /* Tüm uygulama koyu temadır; html.dark zaten index.html'de sabit. */

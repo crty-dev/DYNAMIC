@@ -99,32 +99,32 @@ dalgası, SDK = kod/entegrasyon, Console = düz ana sembol.
 
 | Token      | Hex       | Kullanım                                   |
 | ---------- | --------- | ------------------------------------------ |
-| Ink        | `#010C18` | Ana zemin, koyu tema arka planı            |
-| Navy       | `#0A3261` | Derin vurgular, grafik zeminleri           |
-| Azure      | `#1F92EB` | Ara vurgu                                  |
-| Blue       | `#1D72FC` | Gradyanın bitişi, birincil aksiyon         |
-| Blue 2     | `#1E82F4` | Yardımcı mavi                              |
-| Cyan       | `#20A7DF` | Gradyanın ortası                           |
-| Sky        | `#23BCD5` | Açık vurgular                              |
-| Teal       | `#24D2CD` | Gradyanın başlangıcı, başarı/pozitif veri  |
-| Deep       | `#0F515D` | Koyu teal gölgeler                         |
+| Ink        | `#0B1D2F` | Ana zemin, koyu tema arka planı            |
+| Blue       | `#1D70FD` | Gradyanın bitişi, birincil aksiyon         |
+| Blue 2     | `#1E87F1` | Hover ve ikincil aksiyon                   |
+| Blue 3     | `#1F97E8` | Grafik serileri                            |
+| Cyan       | `#20A9DE` | Gradyanın ortası                           |
+| Cyan 2     | `#22BAD6` | Açık vurgular, yardımcı veri               |
+| Teal       | `#23D8CA` | Gradyanın başlangıcı, başarı/pozitif veri  |
+| Deep       | `#0F515D` | Koyu teal gölgeler (destek rengi)          |
 | Text       | `#EAF4FF` | Ana metin                                  |
-| Muted      | `rgba(212,228,244,.63)` | İkincil metin               |
+| Muted      | `#A9BFD2` | İkincil metin                              |
+| Faint      | `#7F99AD` | Etiket ve üçüncül metin                    |
 
-Marka gradyanı sabittir: `#24D2CD → #20A7DF → #1D72FC` (soldan sağa).
+Marka gradyanı sabittir: `#23D8CA → #20A9DE → #1D70FD` (soldan sağa).
 Gradyan yönü değiştirilmez, logo yeniden renklendirilmez.
 
 ### Tipografi
 
 | Rol             | Font                 | Ağırlıklar       | Lisans   |
 | --------------- | -------------------- | ---------------- | -------- |
-| Başlık / arayüz | Montserrat           | 400–800          | SIL OFL  |
-| Kod / etiket    | JetBrains Mono       | 400, 500         | SIL OFL  |
+| Başlık / arayüz | Montserrat           | 500, 600, 700    | SIL OFL  |
+| Kod / etiket    | JetBrains Mono       | 400              | SIL OFL  |
 
 Font dosyaları ve OFL lisans metinleri `assets/brand/fonts/` altındadır. Web
-sitesi Montserrat ve JetBrains Mono'yu Google Fonts üzerinden yükler
-(`index.html`); raster üretimi ise yerel TTF dosyalarını kullanır. Tipografik
-yedekler: `Helvetica Neue, Arial, sans-serif` ve
+sitesi fontları kendi sunucusundan `@font-face` ile yükler (`src/index.css`);
+üçüncü taraf font isteği yoktur. Raster üretimi de aynı yerel TTF dosyalarını
+kullanır. Tipografik yedekler: `Helvetica Neue, Arial, sans-serif` ve
 `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`.
 
 ### Dosya yapısı
@@ -182,12 +182,24 @@ değişiklik yapılacaksa `scripts/brand/build.mjs` güncellenip komut yeniden
 
 ### Sitede kullanım
 
-Landing sayfası marka dosyalarını doğrudan içe aktarır
-(`src/landing/LandingPage.tsx`): yatay logo navigasyon ve footer'da, ürün
-ikonları kartlarda ve SDK bölümünde kullanılır. Hero'daki Console görünümü
+Landing sayfası, `images/` altındaki yüksek çözünürlüklü şeffaf marka
+görsellerini doğrudan içe aktarır (`src/landing/LandingPage.tsx`). Her görsel
+`<picture>` ile yüklenir: birincil kaynak `.webp`, geri dönüş `.png`. DYNAMIC
+sembolü navigasyon ve footer'da metin wordmark'ıyla birlikte, Analytics / RUM /
+SDK ürün ikonları kartlarda kullanılır. Hero'daki Console görünümü
 (`DashMock.tsx`) raster bir ekran görüntüsü değil, marka renkleriyle canlı
 HTML/SVG olarak üretilir. Favicon, Apple touch icon, manifest ve Open Graph
-görseli `index.html` üzerinden `public/` dosyalarına bağlanır.
+görseli `index.html` üzerinden `public/` dosyalarına bağlanır; favicon
+`images/favicon.ico` kaynağından 16/32/48 px PNG ve optimize ICO olarak
+türetilmiştir.
+
+### Animasyon
+
+Hero grafiğinin çizilmesi ve fareyle gezilebilen tooltip, dashboard parallax'ı,
+scroll reveal, sonsuz teknoloji şeridi, kart hover'ları, kod typewriter'ı ve CTA
+reveal'ı CSS + React + IntersectionObserver ile yapılır. Framer Motion, GSAP
+veya benzeri bir animasyon runtime'ı eklenmedi; bu, paket boyutunu ve Free plan
+CPU bütçesini korur. Tüm hareketler `prefers-reduced-motion` ile durur.
 
 **Not:** `.opencode/` klasörü yerel MCP yapılandırması içerdiğinden (canlı
 API anahtarları) repoya girmemesi için `.gitignore` kurallarına dahildir.
