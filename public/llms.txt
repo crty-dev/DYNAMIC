@@ -19,7 +19,8 @@ small SDK, validated on the edge and written to a database you own.
 ## Quick facts
 
 - **Home:** https://dynamic.crty-dev.com/
-- **Console:** https://dynamic.crty-dev.com/dashboard
+- **Console (product app):** https://app.dynamic.crty-dev.com
+- **Console preview (public, demo data):** https://dynamic.crty-dev.com/demo
 - **Source code (MIT):** https://github.com/crty-dev/DYNAMIC
 - **License:** MIT
 - **Stack:** React 19, TypeScript, Vite, Tailwind CSS v4, Hono, Cloudflare Workers, D1
@@ -29,9 +30,19 @@ small SDK, validated on the edge and written to a database you own.
 
 - App: https://app.dynamic.crty-dev.com
 - Email + password accounts (Better Auth on D1), e-mail verification, password reset.
+- Optional sign in with GitHub or Google (only when the deployment has OAuth
+  credentials).
 - Website projects with DNS TXT verification:
   `_dynamic-verification.<hostname>` = `dynamic-verification=<token>`.
 - Per project install snippet: `<script async src="/js/dynamic.js" data-site="<id>"></script>`.
+
+## Super admin
+
+- Panel: https://dynamic.crty-dev.com/dashboard
+- Only accounts with the `admin` role can open it; the API checks the role of
+  the session, not just the interface.
+- The first administrator is promoted through the `ADMIN_EMAILS` Worker
+  secret; the panel can promote every other account afterwards.
 
 ## API
 

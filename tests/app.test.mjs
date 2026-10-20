@@ -80,6 +80,10 @@ before(async () => {
       "AUTH_RATE_LIMIT_MAX:1000",
       "--var",
       "PROJECT_VERIFY_INTERVAL_MS:0",
+      // The super admin account of this run. The address is promoted when it
+      // signs in, so the panel can be tested end to end.
+      "--var",
+      `ADMIN_EMAILS:admin-${RUN}@dynamic.local`,
     ],
     { cwd: ROOT, stdio: "ignore" },
   );
@@ -173,6 +177,13 @@ async function verifiedAccount(name) {
   return { jar, address };
 }
 
+/** The id of an account inside the super admin user list. */
+function normalRowId(users, address) {
+  const row = (users.payload.users ?? []).find((u) => u.email === address);
+  assert.ok(row, `${address} must be listed`);
+  return row.id;
+}
+
 /* ------------------------------------------------------------------ tests */
 
 describe("DYNAMIC application API", () => {
@@ -202,6 +213,45 @@ describe("DYNAMIC application API", () => {
     const result = await api("/api/auth/providers");
     assert.equal(result.status, 200);
     assert.deepEqual(result.payload.providers, []);
+  });
+
+  it("keeps the super admin surface behind the role", async () => {
+    // Without a session nothing is exposed.
+    const anonymous = await api("/api/super/overview");
+    assert.equal(anonymous.status, 401);
+
+    // A normal account is authenticated but not an admin.
+    const normal = await verifiedAccount("normal");
+    const normalCall = await api("/api/super/overview", { jar: normal.jar });
+    assert.equal(normalCall.status, 403);
+
+    // The address in ADMIN_EMAILS is promoted when it signs in.
+    const admin = await verifiedAccount("admin");
+    const overview = await api("/api/super/overview", { jar: admin.jar });
+    assert.equal(overview.status, 200, JSON.stringify(overview.payload).slice(0, 200));
+    assert.ok(overview.payload.totals.users >= 2);
+    assert.ok(overview.payload.totals.admins >= 1);
+
+    const users = await api("/api/super/users", { jar: admin.jar });
+    assert.equal(users.status, 200);
+    const adminRow = users.payload.users.find((u) => u.email === admin.address);
+    assert.ok(adminRow, "the admin account must be listed");
+    assert.equal(adminRow.role, "admin");
+
+    // A second account can be promoted and demoted again.
+    const promote = await api(`/api/super/users/${normalRowId(users, normal.address)}/role`, {
+      jar: admin.jar,
+      method: "POST",
+      body: { role: "admin" },
+    });
+    assert.equal(promote.status, 200, JSON.stringify(promote.payload).slice(0, 200));
+
+    const demote = await api(`/api/super/users/${normalRowId(users, normal.address)}/role`, {
+      jar: admin.jar,
+      method: "POST",
+      body: { role: "user" },
+    });
+    assert.equal(demote.status, 200);
   });
 
   it("verifies the e-mail, opens a secure session and signs out again", async () => {    const address = email("verified");

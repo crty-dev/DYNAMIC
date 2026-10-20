@@ -32,6 +32,33 @@ export function enabledSocialProviders(env: Bindings): string[] {
   return providers;
 }
 
+/** The addresses that are promoted to super admin when they sign in. */
+export function adminEmails(env: Bindings): string[] {
+  return (env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/**
+ * Promotes a user to super admin when its address is listed in ADMIN_EMAILS.
+ *
+ * This is the bootstrap for the first administrator: the panel itself can
+ * promote everybody else. The write happens once per sign in and only when
+ * the role actually changes.
+ */
+export async function promoteAdmin(env: Bindings, userId: string): Promise<void> {
+  const admins = adminEmails(env);
+  if (admins.length === 0) return;
+  const row = await env.DB.prepare("SELECT email, role FROM user WHERE id = ?")
+    .bind(userId)
+    .first<{ email?: string; role?: string }>();
+  if (!row?.email) return;
+  if (row.role === "admin") return;
+  if (!admins.includes(String(row.email).toLowerCase())) return;
+  await env.DB.prepare("UPDATE user SET role = 'admin' WHERE id = ?").bind(userId).run();
+}
+
 /**
  * Builds the Better Auth options for the given bindings.
  *
@@ -170,6 +197,28 @@ export function buildAuthOptions(env: Bindings): BetterAuthOptions {
     user: {
       changeEmail: { enabled: false },
       deleteUser: { enabled: true },
+      additionalFields: {
+        // The role is never accepted from the client (input: false), so a
+        // visitor cannot promote themselves at sign up. It is returned in the
+        // session so the console and the super admin panel can read it.
+        role: {
+          type: "string",
+          defaultValue: "user",
+          input: false,
+          returned: true,
+          required: false,
+        },
+      },
+    },
+    databaseHooks: {
+      session: {
+        create: {
+          // An address in ADMIN_EMAILS is promoted the first time it signs in.
+          after: async (session) => {
+            await promoteAdmin(env, session.userId);
+          },
+        },
+      },
     },
     plugins: [
       ...plugins,

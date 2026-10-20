@@ -1737,6 +1737,153 @@ app.delete("/api/admin/sites/:id", async (c) => {
 });
 
 /* ==========================================================================
+   Super admin API — session based, for the /dashboard panel
+   ========================================================================== */
+
+/**
+ * The super admin panel works with the browser session instead of the admin
+ * token: the panel needs a signed in person, the token is for automation.
+ *
+ * The role lives on the user row and can never be set by the client, so the
+ * check below is the only way into the surface.
+ */
+async function requireSuperAdmin(c: Context<AppEnv>) {
+  const auth = createAuth(c.env);
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  const user = session?.user as { id?: string; role?: string } | undefined;
+  if (!user?.id) return { error: "unauthorized" as const, status: 401 as const };
+  if (user.role !== "admin") return { error: "forbidden" as const, status: 403 as const };
+  return { user };
+}
+
+app.use("/api/super/*", async (c, next) => {
+  const limit = rateLimit(`super:${clientIp(c) || "unknown"}`, 60, 60_000);
+  if (!limit.allowed) return tooManyRequests(c, limit.retryAfter);
+  const guard = await requireSuperAdmin(c);
+  if ("error" in guard) return c.json({ error: guard.error }, guard.status);
+  c.set("adminUser", guard.user);
+  await next();
+});
+
+/** The numbers the panel opens with. */
+app.get("/api/super/overview", async (c) => {
+  const [users, admins, sites, events, sessions, recentUsers, recentSites] = await Promise.all([
+    c.env.DB.prepare("SELECT COUNT(*) AS n FROM user").first<{ n: number }>(),
+    c.env.DB.prepare("SELECT COUNT(*) AS n FROM user WHERE role = 'admin'").first<{ n: number }>(),
+    c.env.DB.prepare("SELECT COUNT(*) AS n FROM sites").first<{ n: number }>(),
+    c.env.DB.prepare("SELECT COUNT(*) AS n FROM events").first<{ n: number }>(),
+    c.env.DB.prepare("SELECT COUNT(*) AS n FROM sessions").first<{ n: number }>(),
+    c.env.DB.prepare(
+      "SELECT id, name, email, emailVerified, role, createdAt FROM user ORDER BY createdAt DESC LIMIT 8",
+    ).all(),
+    c.env.DB.prepare(
+      `SELECT s.public_id AS publicId, s.name, s.origin, s.created_at AS createdAt, s.events_today AS eventsToday, u.email AS owner
+         FROM sites s LEFT JOIN projects p ON p.hostname = s.origin
+         LEFT JOIN user u ON u.id = p.user_id
+        ORDER BY s.created_at DESC LIMIT 8`,
+    ).all(),
+  ]);
+  return c.json({
+    ok: true,
+    totals: {
+      users: users?.n ?? 0,
+      admins: admins?.n ?? 0,
+      sites: sites?.n ?? 0,
+      events: events?.n ?? 0,
+      sessions: sessions?.n ?? 0,
+    },
+    recentUsers: recentUsers.results ?? [],
+    recentSites: recentSites.results ?? [],
+  });
+});
+
+/** Every account, newest first. */
+app.get("/api/super/users", async (c) => {
+  const limit = Math.min(Number(c.req.query("limit") ?? 50) || 50, 200);
+  const offset = Math.max(Number(c.req.query("offset") ?? 0) || 0, 0);
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, name, email, emailVerified, role, createdAt,
+            (SELECT COUNT(*) FROM projects p WHERE p.user_id = user.id) AS projects
+       FROM user ORDER BY createdAt DESC LIMIT ? OFFSET ?`,
+  )
+    .bind(limit, offset)
+    .all();
+  return c.json({ ok: true, users: results, pagination: { limit, offset } });
+});
+
+const roleSchema = z.object({ role: z.enum(["user", "admin"]) });
+
+/** Promotes or demotes an account. */
+app.post("/api/super/users/:id/role", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const parsed = roleSchema.safeParse(body);
+  if (!parsed.success) return invalidPayload(c, parsed.error.issues);
+
+  const id = c.req.param("id");
+  const target = await c.env.DB.prepare("SELECT id, role FROM user WHERE id = ?")
+    .bind(id)
+    .first<{ id: string; role: string }>();
+  if (!target) return c.json({ error: "not_found" }, 404);
+
+  // An admin may not demote the last admin - that would lock the panel out.
+  if (target.role === "admin" && parsed.data.role !== "admin") {
+    const { n } = (await c.env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM user WHERE role = 'admin'",
+    ).first<{ n: number }>()) ?? { n: 0 };
+    if ((n ?? 0) <= 1) {
+      return c.json({ error: "last_admin" }, 400);
+    }
+  }
+
+  await c.env.DB.prepare("UPDATE user SET role = ? WHERE id = ?")
+    .bind(parsed.data.role, id)
+    .run();
+  return c.json({ ok: true, id, role: parsed.data.role });
+});
+
+/** Every site of every account. */
+app.get("/api/super/sites", async (c) => {
+  const limit = Math.min(Number(c.req.query("limit") ?? 50) || 50, 200);
+  const { results } = await c.env.DB.prepare(
+    `SELECT s.id, s.public_id AS publicId, s.name, s.origin, s.created_at AS createdAt,
+            s.events_today AS eventsToday, s.daily_event_limit AS dailyEventLimit,
+            s.retention_days AS retentionDays, u.email AS owner
+       FROM sites s
+       LEFT JOIN projects p ON p.hostname = s.origin
+       LEFT JOIN user u ON u.id = p.user_id
+      ORDER BY s.created_at DESC LIMIT ?`,
+  )
+    .bind(limit)
+    .all();
+  return c.json({ ok: true, sites: results });
+});
+
+/** Erases a site and all of its data (right to erasure). */
+app.delete("/api/super/sites/:publicId", async (c) => {
+  const publicId = c.req.param("publicId");
+  const site = await c.env.DB.prepare("SELECT id FROM sites WHERE public_id = ?")
+    .bind(publicId)
+    .first<{ id: number }>();
+  if (!site) return c.json({ error: "not_found" }, 404);
+
+  const [events, sessions, goals] = await Promise.all([
+    c.env.DB.prepare("DELETE FROM events WHERE site_id = ?").bind(site.id).run(),
+    c.env.DB.prepare("DELETE FROM sessions WHERE site_id = ?").bind(site.id).run(),
+    c.env.DB.prepare("DELETE FROM goals WHERE site_id = ?").bind(site.id).run(),
+  ]);
+  await c.env.DB.prepare("DELETE FROM sites WHERE id = ?").bind(site.id).run();
+  return c.json({
+    ok: true,
+    erased: {
+      site: publicId,
+      events: events.meta.changes ?? 0,
+      sessions: sessions.meta.changes ?? 0,
+      goals: goals.meta.changes ?? 0,
+    },
+  });
+});
+
+/* ==========================================================================
    Media — Cloudinary delivery + guarded uploads
    ========================================================================== */
 

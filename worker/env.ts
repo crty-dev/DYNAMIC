@@ -37,6 +37,12 @@ export type Bindings = {
   GOOGLE_CLIENT_ID?: string;
   /** Google OAuth client - client secret. */
   GOOGLE_CLIENT_SECRET?: string;
+  /**
+   * Comma separated addresses that are promoted to super admin when they
+   * sign in. This is the bootstrap for the first administrator; the panel
+   * can promote everybody else afterwards.
+   */
+  ADMIN_EMAILS?: string;
   /** DNS-over-HTTPS resolver used for the TXT verification. */
   DNS_RESOLVER_URL?: string;
   /** Enables the local mail outbox + relaxed dev behaviour. Never in production. */
@@ -86,6 +92,8 @@ export type Site = {
 export type Variables = {
   /** Browser origin (Origin header) or referer origin; null for server-side calls. */
   requestOrigin: string | null;
+  /** The signed in super admin, set by the /api/super/* guard. */
+  adminUser?: { id?: string; role?: string };
 };
 
 export type AppEnv = { Bindings: Bindings; Variables: Variables };

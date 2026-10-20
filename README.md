@@ -94,13 +94,17 @@ Tablo ve self-hosting adımları: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 | Değişken | Nerede | Açıklama |
 | --- | --- | --- |
+| `BETTER_AUTH_SECRET` | Worker secret | Oturum imzalama anahtarı (32+ karakter, zorunlu). |
 | `ADMIN_API_KEY` | Worker secret | `/api/admin/*` bearer token'ı (zorunlu). |
+| `ADMIN_EMAILS` | Worker secret | Super admin olacak adresler (ilk admin bootstrap). |
 | `MEDIA_UPLOAD_TOKEN` | Worker secret | Medya yükleme uçlarının token'ı. |
 | `CLOUDINARY_URL` | Worker secret | `cloudinary://<key>:<secret>@<cloud>`. |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_UPLOAD_KEY` | `wrangler.jsonc` → `vars` | Public değerler. |
 | `MAX_SITES` | `wrangler.jsonc` → `vars` | Self-serve site sayısı sınırı (varsayılan 500). |
+| `AUTH_IP_HEADERS` | `wrangler.jsonc` → `vars` | Auth hız sınırının istemci IP başlığı (`cf-connecting-ip`). |
 | `VITE_CLOUDINARY_DISABLED` | build ortamı | `1` ise görseller kendi origin'inden (yerel WebP) servis edilir — **fork'lar için önerilir**. |
 | `VITE_CLOUDINARY_CLOUD` | build ortamı | Fork'un kendi Cloudinary cloud adı. |
+| `VITE_CRISP_EAGER` | build ortamı | `1` ise canlı sohbet her sayfa görüntülemesinde yüklenir. |
 
 ## DYNAMIC Console (uygulama)
 
@@ -108,8 +112,9 @@ Tablo ve self-hosting adımları: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 | Deneyim | Adres | İçerik |
 | --- | --- | --- |
-| Pazarlama | `https://dynamic.crty-dev.com` | Landing, marka, açık konsol |
+| Pazarlama | `https://dynamic.crty-dev.com` | Landing, marka, ürün önizlemesi (`/demo`) |
 | Uygulama | `https://app.dynamic.crty-dev.com` | Giriş, projeler, DNS doğrulama, site özeti |
+| Süper admin | `https://dynamic.crty-dev.com/dashboard` | Hesaplar, roller, siteler — yalnızca `role = admin` |
 
 ### Kimlik doğrulama (Better Auth + D1)
 
@@ -336,20 +341,24 @@ lab (laboratuvar) verisi karıştırılmaz.
 
 ## Console (dashboard)
 
-`/dashboard` artık gerçek bir konsoldur: Flatlogic "react-dashboard" şablonunun
-m düzeni (sabit sidebar + sticky header + widget ızgarası) DYNAMIC paletiyle
-ve **canlı D1 verisiyle** yeniden yazıldı. Eski CRA/Bootstrap/Express
-çalıştırması, `sequelize` ve `sqlite` bağımlılıkları taşınmadı — proje
-Vite + React 19 + TypeScript + Tailwind v4 + Cloudflare Workers üzerinde kalır.
+`/demo` bir **ürün önizlemesidir**: Flatlogic "react-dashboard" şablonunun m
+düzeni (sabit sidebar + sticky header + widget ızgarası) DYNAMIC paletiyle
+yeniden yazıldı. Eski CRA/Bootstrap/Express çalıştırması, `sequelize` ve
+`sqlite` bağımlılıkları taşınmadı — proje Vite + React 19 + TypeScript +
+Tailwind v4 + Cloudflare Workers üzerinde kalır.
 
 | Rota | İçerik |
 | --- | --- |
-| `/dashboard` | KPI'lar (ziyaretçi, sayfa görüntüleme, event, dönüşüm), trafik grafiği, gerçek zamanlı görünüm, en çok ziyaret edilen sayfalar, cihaz dağılımı, referrer'lar, dönüşümler |
-| `/dashboard/analytics` | Ziyaretçi + sayfa görüntüleme trendi, referrer/UTM kampanyası, ülke ve özel event kırılımları |
-| `/dashboard/rum` | LCP/INP/CLS/FCP/TTFB için p50/p75/ortalama, rating dağılımı, en yavaş sayfalar (yetersiz veride p75 boş kalır) |
-| `/dashboard/events` | Özel event kırılımı (ad ile arama) |
-| `/dashboard/pages` | Sayfa ve ülke kırılımları |
-| `/dashboard/settings` | Site bilgileri ve SDK kurulum snippet'i |
+| `/demo` | KPI'lar (ziyaretçi, sayfa görüntüleme, event, dönüşüm), trafik grafiği, gerçek zamanlı görünüm, en çok ziyaret edilen sayfalar, cihaz dağılımı, referrer'lar, dönüşümler |
+| `/demo/analytics` | Ziyaretçi + sayfa görüntüleme trendi, referrer/UTM kampanyası, ülke ve özel event kırılımları |
+| `/demo/rum` | LCP/INP/CLS/FCP/TTFB için p50/p75/ortalama, rating dağılımı, en yavaş sayfalar (yetersiz veride p75 boş kalır) |
+| `/demo/events` | Özel event kırılımı (ad ile arama) |
+| `/demo/pages` | Sayfa ve ülke kırılımları |
+| `/demo/settings` | Site bilgileri ve SDK kurulum snippet'i |
+
+> **Gerçek** Console uygulaması `/app` (pazarlama origin'inde) ya da
+> `app.dynamic.crty-dev.com` adresinde çalışır ve oturum ister. `/demo`
+> yalnızca arayüz önizlemesidir (demo veri).
 
 Veri kaynağı read-only uçlar: `GET /api/analytics/summary` ve
 `GET /api/rum/summary` (`?range=24h|7d|30d|90d`, `?site=<public id|hostname>`

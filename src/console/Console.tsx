@@ -42,54 +42,54 @@ type NavItem = {
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Overview",
-    items: [{ to: "/dashboard", label: "Dashboard", icon: BarChart3, end: true }],
+    items: [{ to: "/demo", label: "Dashboard", icon: BarChart3, end: true }],
   },
   {
     title: "Analytics",
     items: [
-      { to: "/dashboard/analytics", label: "Traffic", icon: Activity },
-      { to: "/dashboard/events", label: "Events", icon: MousePointerClick },
+      { to: "/demo/analytics", label: "Traffic", icon: Activity },
+      { to: "/demo/events", label: "Events", icon: MousePointerClick },
     ],
   },
   {
     title: "Performance",
-    items: [{ to: "/dashboard/rum", label: "Web Vitals", icon: Gauge }],
+    items: [{ to: "/demo/rum", label: "Web Vitals", icon: Gauge }],
   },
   {
     title: "Data",
-    items: [{ to: "/dashboard/pages", label: "Pages", icon: ListTree }],
+    items: [{ to: "/demo/pages", label: "Pages", icon: ListTree }],
   },
   {
     title: "System",
-    items: [{ to: "/dashboard/settings", label: "Settings", icon: Settings }],
+    items: [{ to: "/demo/settings", label: "Settings", icon: Settings }],
   },
 ];
 
 const PAGE_META: Record<string, { title: string; subtitle: string }> = {
-  "/dashboard": {
+  "/demo": {
     title: "Dashboard",
     subtitle:
       "Everything your site collected in the selected window — visitors, pageviews and Web Vitals, straight from D1.",
   },
-  "/dashboard/analytics": {
+  "/demo/analytics": {
     title: "Traffic",
     subtitle:
       "Visitors and pageviews over time, with the paths and countries that produced them.",
   },
-  "/dashboard/rum": {
+  "/demo/rum": {
     title: "Web Vitals",
     subtitle:
       "LCP, INP, CLS, FCP and TTFB collected with web-vitals, plus the pages that need attention first.",
   },
-  "/dashboard/events": {
+  "/demo/events": {
     title: "Event stream",
     subtitle: "The raw ingest as it arrives. Search by path, metric or country.",
   },
-  "/dashboard/pages": {
+  "/demo/pages": {
     title: "Pages",
     subtitle: "Every path that reported a pageview, ranked by traffic.",
   },
-  "/dashboard/settings": {
+  "/demo/settings": {
     title: "Settings",
     subtitle: "Site keys, collection endpoints and the privacy defaults that ship with DYNAMIC.",
   },
@@ -117,7 +117,7 @@ export default function Console() {
   const rumQuery = useRum(range);
   const analytics = analyticsQuery.data;
 
-  const meta = PAGE_META[location.pathname] ?? PAGE_META["/dashboard"];
+  const meta = PAGE_META[location.pathname] ?? PAGE_META["/demo"];
   const site = analytics?.site ?? null;
 
   const value = useMemo(

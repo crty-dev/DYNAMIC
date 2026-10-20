@@ -498,6 +498,59 @@ html {
 }
 
 /* ==========================================================================
+   Live chat launcher
+   ========================================================================== */
+
+.support-launcher {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.support-launcher:hover {
+  background: var(--panel-2);
+  border-color: var(--teal);
+  transform: translateY(-2px);
+}
+
+.support-launcher svg {
+  color: var(--teal);
+}
+
+@media (max-width: 640px) {
+  .support-launcher {
+    right: 14px;
+    bottom: 14px;
+    min-height: 44px;
+    padding: 0 15px;
+  }
+
+  .support-launcher span {
+    display: none;
+  }
+}
+
+/* ==========================================================================
    Tech stack diagram
    ========================================================================== */
 

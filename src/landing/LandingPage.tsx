@@ -11,6 +11,7 @@ import TypewriterCode from "./TypewriterCode";
 import HalftoneWordmarkFooter from "../components/ui/halftone-wordmark-footer";
 import DataRain from "../components/ui/data-rain";
 import CloudinaryImage from "../components/ui/cloudinary-image";
+import { SupportLauncher } from "../components/ui/support-launcher";
 import { Hero } from "../components/ui/tailwind-css-background-snippet";
 import { CLOUDINARY_ASSETS, type CloudinaryAssetKey } from "../lib/cloudinary";
 import { APP_URL } from "../lib/app-url";
@@ -150,12 +151,12 @@ export default function LandingPage() {
             <a href="#features" onClick={close}>Features</a>
             <a href="#rum" onClick={close}>RUM</a>
             <a href="#sdk" onClick={close}>SDK</a>
-            <a href="/dashboard" onClick={close}>Console</a>
+            <a href={APP_URL} onClick={close}>Console</a>
             <div className="nav__menu-cta">
               <a className="button button--ghost button--sm" href={REPO} target="_blank" rel="noreferrer" onClick={close}>
                 <GithubMark size={15} /> GitHub
               </a>
-              <a className="button button--solid button--sm" href="/dashboard" onClick={close}>
+              <a className="button button--solid button--sm" href={`${APP_URL}/register`} onClick={close}>
                 Get started
               </a>
             </div>
@@ -251,7 +252,7 @@ export default function LandingPage() {
                   or personal data, so you never need a consent banner.
                 </p>
                 <div className="card__actions">
-                  <a className="card__link" href="/dashboard">
+                  <a className="card__link" href="/demo">
                     View dashboard <ArrowRight size={15} strokeWidth={2.2} aria-hidden />
                   </a>
                 </div>
@@ -272,7 +273,7 @@ export default function LandingPage() {
                   Google&apos;s web-vitals and aggregated in D1 at the edge.
                 </p>
                 <div className="card__actions">
-                  <a className="card__link" href="/dashboard">
+                  <a className="card__link" href="/demo">
                     View RUM <ArrowRight size={15} strokeWidth={2.2} aria-hidden />
                   </a>
                 </div>
@@ -301,7 +302,7 @@ export default function LandingPage() {
                   <a className="card__link" href={REPO} target="_blank" rel="noreferrer">
                     View the SDK <ArrowRight size={15} strokeWidth={2.2} aria-hidden />
                   </a>
-                  <a className="card__link" href="/dashboard">
+                  <a className="card__link" href="/demo">
                     Explore Console <ArrowRight size={15} strokeWidth={2.2} aria-hidden />
                   </a>
                 </div>
@@ -361,7 +362,7 @@ export default function LandingPage() {
                 <a className="signal__link" href={`${REPO}#collect-api`} target="_blank" rel="noreferrer">
                   Read the API <ArrowRight size={15} strokeWidth={2.2} aria-hidden />
                 </a>
-                <a className="signal__link" href="/dashboard">
+                <a className="signal__link" href="/demo">
                   Open the console <ArrowRight size={15} strokeWidth={2.2} aria-hidden />
                 </a>
               </div>
@@ -388,6 +389,9 @@ export default function LandingPage() {
         monoFamily='"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace'
         height={compact ? "340px" : "480px"}
       />
+
+      {/* Live chat: the Crisp script is only fetched when it is used. */}
+      <SupportLauncher />
     </div>
   );
 }

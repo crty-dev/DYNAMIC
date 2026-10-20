@@ -31,8 +31,13 @@
     },
     {
       "name": "Console",
-      "url": "https://dynamic.crty-dev.com/dashboard",
+      "url": "https://app.dynamic.crty-dev.com",
       "type": "dashboard"
+    },
+    {
+      "name": "Console preview",
+      "url": "https://dynamic.crty-dev.com/demo",
+      "type": "dashboard-preview"
     },
     {
       "name": "Source code",
@@ -127,6 +132,17 @@
         "website projects",
         "DNS TXT domain verification",
         "analytics and RUM overview per project"
+      ]
+    },
+    {
+      "name": "DYNAMIC Super admin",
+      "url": "https://dynamic.crty-dev.com/dashboard",
+      "type": "admin-panel",
+      "authentication": "email-password-admin-role",
+      "features": [
+        "all accounts and their roles",
+        "all sites across accounts",
+        "site erasure"
       ]
     }
   ]
