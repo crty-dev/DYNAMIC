@@ -2024,7 +2024,7 @@ app.use("/api/projects/*", async (c, next) => {
   await next();
 });
 
-app.use("/api/auth/*", async (c, next) => {
+const authCors = async (c: Context<AppEnv>, next: () => Promise<void>) => {
   const origin = c.req.header("origin");
   if (origin && allowedOrigins(c.env).includes(origin)) {
     c.header("Access-Control-Allow-Origin", origin);
@@ -2043,13 +2043,17 @@ app.use("/api/auth/*", async (c, next) => {
     return c.body(null, 204);
   }
   await next();
-});
+};
+
+// The base path is matched as well: the dashboard probes /api/auth directly.
+app.use("/api/auth", authCors);
+app.use("/api/auth/*", authCors);
 
 /**
  * Better Auth handles registration, login, verification mails, password reset
  * and sessions. The instance is created per Worker isolate and cached.
  */
-app.all("/api/auth/*", async (c) => {
+const authHandler = async (c: Context<AppEnv>) => {
   const auth = createAuth(c.env);
   const response = await auth.handler(c.req.raw);
 
@@ -2068,7 +2072,23 @@ app.all("/api/auth/*", async (c) => {
     });
   }
   return response;
-});
+};
+
+/**
+ * The base path is not a Better Auth route (it answers 404), but the
+ * dashboard probes it to check the connection - so it gets a small descriptor.
+ */
+app.get("/api/auth", (c) =>
+  c.json({
+    ok: true,
+    service: "better-auth",
+    basePath: "/api/auth",
+    health: "/api/auth/ok",
+  }),
+);
+
+app.all("/api/auth", authHandler);
+app.all("/api/auth/*", authHandler);
 
 /** Website projects + DNS verification (ownership scoped). */
 app.route("/api/projects", createProjectsApp());
