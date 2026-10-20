@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { rateLimit } from "../worker/index.ts";
+import { rateLimit } from "../worker/rate-limit.ts";
 
 /**
  * The limiter lives in the Worker (in-isolate, no D1 cost), so it is unit

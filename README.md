@@ -83,6 +83,63 @@ Tablo ve self-hosting adımları: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 | `VITE_CLOUDINARY_DISABLED` | build ortamı | `1` ise görseller kendi origin'inden (yerel WebP) servis edilir — **fork'lar için önerilir**. |
 | `VITE_CLOUDINARY_CLOUD` | build ortamı | Fork'un kendi Cloudinary cloud adı. |
 
+## DYNAMIC Console (uygulama)
+
+İki ayrı deneyim, **tek Worker**:
+
+| Deneyim | Adres | İçerik |
+| --- | --- | --- |
+| Pazarlama | `https://dynamic.crty-dev.com` | Landing, marka, açık konsol |
+| Uygulama | `https://app.dynamic.crty-dev.com` | Giriş, projeler, DNS doğrulama, site özeti |
+
+### Kimlik doğrulama (Better Auth + D1)
+
+- E-posta + şifre ile kayıt ve giriş. Parola hash'leme ve oturum imzalama
+  Better Auth'a bırakıldı — elle kriptografi yok.
+- **Doğrulanmamış e-posta ile giriş engellenir** (`403 EMAIL_NOT_VERIFIED`).
+- Doğrulama ve şifre sıfırlama bağlantıları 1 saat geçerli; sıfırlama
+  token'ı **tek kullanımlık** (yeniden kullanımı reddedilir).
+- Oturumlar `HttpOnly` + `Secure` + `SameSite=Lax` çerezle, 7 gün geçerli.
+- Şifre sıfırlandığında diğer oturumlar iptal edilir.
+- Turnstile **opsiyonel**: `TURNSTILE_SECRET_KEY` varsa kayıt/giriş/sıfırlama
+  istekleri bot korumasından geçer.
+- E-posta gönderimi adaptörle yapılır (`MAIL_PROVIDER_URL` +
+  `MAIL_PROVIDER_TOKEN`). Sağlayıcı yoksa üretimde e-posta gönderilmez ve
+  istek başarısız olmaz; geliştirmede mailler `/api/dev/mailbox` outbox'ına
+  düşer (yalnızca `DEV_MODE=1`).
+
+### Web sitesi projeleri ve DNS doğrulama
+
+- Her kullanıcı kendi projelerini yönetir; **her sorgu `user_id` ile sınırlıdır**,
+  istemci hiçbir zaman sahip id göndermez.
+- Alan adı sunucuda normalize edilir (IDN → punycode); IP adresleri, tek
+  etiketli alan adları ve geçersiz uzantılar reddedilir.
+- Her proje için kriptografik rastgele 48 haneli doğrulama token'ı üretilir.
+- Yayınlanacak kayıt: **TXT** `_dynamic-verification.<hostname>` →
+  `dynamic-verification=<token>`.
+- DNS **sunucu tarafında**, Workers'ta çalışan DoH (Cloudflare 1.1.1.1) ile
+  sorgulanır; istemci "doğrulanmış" diyemez.
+- Durum makinesi: `pending → verifying → verified`; hata durumları
+  (kayıt yok, hatalı değer, DNS hatası) geri dönülebilir ve gerekçesi
+  kullanıcıya gösterilir.
+- Doğrulama denemeleri sınırlıdır: **10 saniye aralık, saatte 20 deneme**;
+  istemci ~60 saniyelik bir pencereyle yoklar ve elle "tekrar dene" sunar.
+- Bir alan adı yalnızca bir projeye bağlanabilir; doğrulanmış alan adı başka
+  hesap tarafından alınamaz (`409 hostname_taken`).
+- Silme açık onay ister (`?confirm=<id>`) ve o sitenin tüm event/oturum
+  kayıtlarını da siler (KVKK unutma hakkı).
+
+### Yerel geliştirme
+
+```bash
+npm run dev        # pazarlama sitesi  → http://localhost:5173
+npm run dev:app    # uygulama          → http://localhost:5174
+npx wrangler dev  # API + statik       → http://127.0.0.1:8787
+```
+
+Uygulama `VITE_API_ORIGIN` ile API adresini bilir (yerelde
+`http://127.0.0.1:8787`), üretimde aynı origin olduğu için göreli yol yeter.
+
 ## Açık kaynak
 
 - Lisans: [MIT](LICENSE) — ticari kullanım, değiştirme ve dağıtım serbest.

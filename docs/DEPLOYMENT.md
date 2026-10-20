@@ -68,6 +68,66 @@ R2 eklemek için `wrangler.jsonc`'ye:
 
 ve `npx wrangler r2 bucket create dynamic-media` komutu.
 
+## DYNAMIC Console (uygulama) — dağıtım
+
+Uygulama **ayrı bir origin** üzerinde çalışır ama aynı Worker'ı paylaşır
+(tek deploy, tek D1 binding).
+
+### 1) Origin
+
+```
+Cloudflare Dashboard → Workers & Pages → dynamic → Settings → Domains & Routes
+  → Add Custom Domain → app.dynamic.crty-dev.com
+```
+
+Worker, `app.` ile başlayan host'larda uygulama kabuğunu (`/app/index.html`)
+sunar; diğer host'larda pazarlama sitesini. DNS değişikliği zone
+yöneticisinden yapılır; SSL modu **Full (strict)** olmalıdır.
+
+### 2) Secret'lar
+
+```bash
+npx wrangler secret put BETTER_AUTH_SECRET   # openssl rand -hex 32
+npx wrangler secret put ADMIN_API_KEY       # openssl rand -hex 24
+npx wrangler secret put MEDIA_UPLOAD_TOKEN  # openssl rand -hex 24
+npx wrangler secret put CLOUDINARY_URL      # cloudinary://<key>:<secret>@<cloud>
+```
+
+`BETTER_AUTH_SECRET` olmadan Worker auth uçlarında hata verir (sessizce
+güvensiz bir oturum üretmez).
+
+### 3) Public değişkenler (`wrangler.jsonc` → `vars`)
+
+| Değişken | Değer |
+| --- | --- |
+| `APP_URL` | `https://app.dynamic.crty-dev.com` |
+| `MARKETING_URL` | `https://dynamic.crty-dev.com` |
+| `MAIL_FROM` | `DYNAMIC <no-reply@crty-dev.com>` |
+| `MAX_SITES` | `500` (self-serve site sayısı sınırı) |
+
+### 4) E-posta gönderimi (ücretsiz seçenekler)
+
+| Sağlayıcı | Ücretsiz limit | Not |
+| --- | --- | --- |
+| **Resend** | 3.000 e-posta/ay, 100/gün | `MAIL_PROVIDER_URL=https://api.resend.com/emails` |
+| **Kendi SMTP'niz** | — | Sağlayıcı yoksa e-posta gönderilmez, istek başarısız olmaz. |
+| **Geliştirme** | — | `DEV_MODE=1` → mailler `GET /api/dev/mailbox` outbox'ına düşer. |
+
+Hiçbir sağlayıcı zorunlu değildir; projede ücretli bir servis zorunlu hâle
+getirilmez ve otomatik olarak ücretli plana geçilmez.
+
+### 5) DNS doğrulama kaydı
+
+Kullanıcı, Console'da üretilen TXT kaydını alan adının DNS sağlayıcısına
+ekler:
+
+```
+TXT   _dynamic-verification.<hostname>   dynamic-verification=<48 haneli token>
+```
+
+Doğrulama Worker tarafında, DNS-over-HTTPS (Cloudflare 1.1.1.1) ile yapılır.
+`DNS_RESOLVER_URL` ile başka bir çözümleyici kullanılabilir.
+
 ## 3. Environment variable ve secret listesi
 
 | Değişken | Nerede | Zorunlu | Açıklama |

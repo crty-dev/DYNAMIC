@@ -93,6 +93,23 @@ Her iki uç da yalnızca yönetici bearer token'ı ile çağrılabilir.
 
 Üçüncü taraf izleme (analytics, reklam, sosyal medya pikseli) **yoktur**.
 
+## 7b. Uygulama (Console) verileri
+
+| Veri | Neden | Saklama |
+| --- | --- | --- |
+| E-posta adresi | Hesabın kimliği | Hesap ömrü + silme talebi |
+| Parola hash'i (scrypt) | Kimlik doğrulama | Hesap ömrü |
+| Oturum kaydı (token, IP, UA) | Oturum yönetimi | 7 gün |
+| Doğrulama / sıfırlama token'ı | Tek kullanımlık işlem | 1 saat |
+
+- E-posta adresi toplama (yönlendirme) veya üçüncü taraf ölçümleme yoktur.
+- Parolalar hiçbir zaman düz metin saklanmaz; Better Auth'in scrypt uygulaması
+  kullanılır.
+- Oturum çerezleri `HttpOnly`, `Secure`, `SameSite=Lax`'tir.
+- **Erişim talebi:** `GET /api/admin/sites/:id/export` (JSON: oturumlar, event'ler,
+  goal'lar) ve `DELETE /api/admin/sites/:id?confirm=<id>` (site + tüm verisi).
+- Parola değişiminde diğer oturumlar otomatik iptal edilir.
+
 ## 8. Veri güvenliği
 
 - Uçtan uca HTTPS (TLS), HSTS önerilir.

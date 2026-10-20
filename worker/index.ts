@@ -1,29 +1,22 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
+import { createAuth } from "./auth";
+import {
+  analyticsSummary,
+  bucketCount,
+  emptySeries,
+  MIN_P75_SAMPLES,
+  resolveRange,
+  rumSummary,
+  RANGES,
+  VITAL_METRIC_LIST,
+} from "./analytics";
+import { allowedOrigins, config, type AppEnv, type Bindings } from "./env";
+import { readOutbox } from "./mailer";
+import { createProjectsApp } from "./projects";
+import { rateLimit } from "./rate-limit";
 
-type Bindings = {
-  /** Cloudflare D1 binding (Free plan) — migrations/: 0001_init.sql */
-  DB: D1Database;
-  /** Static assets binding (dist/) */
-  ASSETS: Fetcher;
-  /** Cloudinary credential — "cloudinary://<key>:<secret>@<cloud>". Secret: wrangler secret put. */
-  CLOUDINARY_URL?: string;
-  /** Public cloud name (also in wrangler vars). */
-  CLOUDINARY_CLOUD_NAME?: string;
-  /** Public upload API key. */
-  CLOUDINARY_UPLOAD_KEY?: string;
-  /** Bearer token that guards the media upload/signature endpoints. */
-  MEDIA_UPLOAD_TOKEN?: string;
-  /** Bearer token that guards every /api/admin/* route. */
-  ADMIN_API_KEY?: string;
-  /** Maximum number of self-serve sites (protects the D1 write quota). */
-  MAX_SITES?: string;
-};
-
-type Variables = {
-  /** Browser origin (Origin header) or referer origin; null for server-side calls. */
-  requestOrigin: string | null;
-};
+export type { Bindings, Variables, AppEnv } from "./env";
 
 type Site = {
   id: number;
@@ -37,8 +30,6 @@ type Site = {
   counter_day: string | null;
 };
 
-type AppEnv = { Bindings: Bindings; Variables: Variables };
-
 const app = new Hono<AppEnv>();
 
 /* ==========================================================================
@@ -50,21 +41,8 @@ const MAX_BODY_BYTES = 128 * 1024;
 const MAX_ATTRIBUTION_BYTES = 4 * 1024;
 const MAX_PROPS = 8;
 const MAX_PROP_VALUE = 200;
-const FUTURE_TOLERANCE_MS = 60 * 60 * 1000;
-const MIN_P75_SAMPLES = 20;
-
-const VITAL_METRICS = ["LCP", "INP", "CLS", "FCP", "TTFB"] as const;
 const RATINGS = ["good", "needs-improvement", "poor"] as const;
-
-/** Range → window, bucket size and bucket count. */
-const RANGES = {
-  "24h": { windowMs: 24 * 3600_000, bucketMs: 3600_000, buckets: 24 },
-  "7d": { windowMs: 7 * 86400_000, bucketMs: 86400_000, buckets: 7 },
-  "30d": { windowMs: 30 * 86400_000, bucketMs: 86400_000, buckets: 30 },
-  "90d": { windowMs: 90 * 86400_000, bucketMs: 86400_000, buckets: 90 },
-} as const;
-
-type RangeKey = keyof typeof RANGES;
+const FUTURE_TOLERANCE_MS = 60 * 60 * 1000;
 
 /* ==========================================================================
    Event schema
@@ -103,7 +81,7 @@ const eventSchema = z.discriminatedUnion("type", [
   z.object({
     ...baseEventShape,
     type: z.literal("vital"),
-    metric: z.enum(VITAL_METRICS),
+    metric: z.enum(VITAL_METRIC_LIST),
     value: z.number().nonnegative().max(1_000_000_000),
     rating: z.enum(RATINGS).optional(),
   }),
@@ -588,10 +566,6 @@ function matchGoal(goals: Goal[], event: IncomingEvent, path: string | null): Go
    Shared helpers
    ========================================================================== */
 
-function resolveRange(value: string | undefined): RangeKey {
-  const key = (value ?? "7d").toLowerCase();
-  return key in RANGES ? (key as RangeKey) : "7d";
-}
 
 /** Bounded LIMIT helper — never lets a bad query parameter reach D1. */
 function parseLimit(value: string | undefined, fallback: number, max: number): number {
@@ -620,43 +594,6 @@ function invalidPayload(c: Context<AppEnv>, issues: z.ZodIssue[]) {
 
 function unauthorized(c: Context<AppEnv>) {
   return c.json({ error: "unauthorized" }, 401);
-}
-
-/* ==========================================================================
-   Rate limiting — best effort, in-isolate, no D1 cost
-   ========================================================================== */
-
-/**
- * The Free plan must not pay a D1 write per request, so the hot path is
- * protected by an in-memory sliding window. It is per-isolate and therefore
- * best effort: the hard, global cap is the site's daily event quota in D1.
- * Put a Cloudflare rate limiting rule in front of /api/collect for a global
- * limit (see docs/DEPLOYMENT.md).
- */
-type RateBucket = { count: number; resetAt: number };
-const rateBuckets = new Map<string, RateBucket>();
-
-export function rateLimit(
-  key: string,
-  limit: number,
-  windowMs: number,
-): { allowed: boolean; retryAfter: number } {
-  const now = Date.now();
-  const bucket = rateBuckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    rateBuckets.set(key, { count: 1, resetAt: now + windowMs });
-    if (rateBuckets.size > 5000) {
-      for (const [entryKey, entry] of rateBuckets) {
-        if (entry.resetAt <= now) rateBuckets.delete(entryKey);
-      }
-    }
-    return { allowed: true, retryAfter: 0 };
-  }
-  bucket.count += 1;
-  if (bucket.count > limit) {
-    return { allowed: false, retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) };
-  }
-  return { allowed: true, retryAfter: 0 };
 }
 
 /** The visitor IP as seen by the edge (empty string for server-to-server calls). */
@@ -1065,25 +1002,6 @@ async function resolveReportSite(c: Context<AppEnv>): Promise<{ site: Site | nul
   return { site: resolved.site, response: reportError(c, resolved.error) ?? undefined };
 }
 
-function emptySeries(buckets: number, bucketMs: number, from: number) {
-  const first = Math.floor(from / bucketMs);
-  return Array.from({ length: buckets }, (_, index) => ({
-    t: (first + index) * bucketMs,
-    pageviews: 0,
-    visitors: 0,
-    events: 0,
-  }));
-}
-
-/**
- * Number of buckets in a window: the full window plus the current (partial)
- * bucket, so "today" is never dropped from the series.
- */
-function bucketCount(range: RangeKey): number {
-  const { windowMs, bucketMs } = RANGES[range];
-  return Math.ceil(windowMs / bucketMs) + 1;
-}
-
 app.get("/api/analytics/summary", async (c) => {
   const range = resolveRange(c.req.query("range"));
   const { windowMs, bucketMs } = RANGES[range];
@@ -1092,7 +1010,6 @@ app.get("/api/analytics/summary", async (c) => {
   const from = now - windowMs;
   const { site, response } = await resolveReportSite(c);
   if (response) return response;
-
   if (!site) {
     return c.json({
       ok: true,
@@ -1123,148 +1040,7 @@ app.get("/api/analytics/summary", async (c) => {
     if (hit) return hit;
   }
 
-  const [metricRows, sessionRows, seriesRows, sessionSeries, pageRows, referrerRows, campaignRows, deviceRows, goalRows, customRows, countryRows, liveCount, liveSessions, livePages] =
-    await Promise.all([
-      c.env.DB.prepare(
-        `SELECT metric, COUNT(*) AS n,
-                SUM(CASE WHEN goal IS NOT NULL THEN 1 ELSE 0 END) AS conversions
-           FROM events WHERE site_id = ? AND ts >= ? AND ts < ? GROUP BY metric`,
-      )
-        .bind(site.id, from, now)
-        .all<{ metric: string; n: number; conversions: number }>(),
-      c.env.DB.prepare(
-        "SELECT COUNT(*) AS n, COUNT(DISTINCT session_id) AS visitors FROM sessions WHERE site_id = ? AND started_at >= ? AND started_at < ?",
-      )
-        .bind(site.id, from, now)
-        .all<{ n: number; visitors: number }>(),
-      c.env.DB.prepare(
-        `SELECT CAST(ts / ? AS INTEGER) AS bucket, metric, COUNT(*) AS n
-           FROM events WHERE site_id = ? AND ts >= ? AND ts < ? GROUP BY bucket, metric`,
-      )
-        .bind(bucketMs, site.id, from, now)
-        .all<{ bucket: number; metric: string; n: number }>(),
-      c.env.DB.prepare(
-        `SELECT CAST(started_at / ? AS INTEGER) AS bucket, COUNT(*) AS n
-           FROM sessions WHERE site_id = ? AND started_at >= ? AND started_at < ? GROUP BY bucket`,
-      )
-        .bind(bucketMs, site.id, from, now)
-        .all<{ bucket: number; n: number }>(),
-      c.env.DB.prepare(
-        `SELECT path, COUNT(*) AS n FROM events
-          WHERE site_id = ? AND metric = 'pageview' AND ts >= ? AND ts < ? AND path IS NOT NULL
-          GROUP BY path ORDER BY n DESC LIMIT 10`,
-      )
-        .bind(site.id, from, now)
-        .all<{ path: string; n: number }>(),
-      c.env.DB.prepare(
-        `SELECT referrer, COUNT(*) AS n FROM events
-          WHERE site_id = ? AND metric = 'pageview' AND ts >= ? AND ts < ? AND referrer IS NOT NULL
-          GROUP BY referrer ORDER BY n DESC LIMIT 10`,
-      )
-        .bind(site.id, from, now)
-        .all<{ referrer: string; n: number }>(),
-      c.env.DB.prepare(
-        `SELECT utm_source AS source, utm_medium AS medium, utm_campaign AS campaign, COUNT(*) AS n
-           FROM events
-          WHERE site_id = ? AND metric = 'pageview' AND ts >= ? AND ts < ? AND utm_campaign IS NOT NULL
-          GROUP BY utm_source, utm_medium, utm_campaign ORDER BY n DESC LIMIT 10`,
-      )
-        .bind(site.id, from, now)
-        .all<{ source: string | null; medium: string | null; campaign: string | null; n: number }>(),
-      c.env.DB.prepare(
-        `SELECT device, browser, os, COUNT(*) AS n FROM events
-          WHERE site_id = ? AND ts >= ? AND ts < ?
-          GROUP BY device, browser, os ORDER BY n DESC LIMIT 10`,
-      )
-        .bind(site.id, from, now)
-        .all<{ device: string; browser: string; os: string; n: number }>(),
-      c.env.DB.prepare(
-        `SELECT goal AS name, COUNT(*) AS n, SUM(COALESCE(value, 0)) AS value FROM events
-          WHERE site_id = ? AND ts >= ? AND ts < ? AND goal IS NOT NULL
-          GROUP BY goal ORDER BY n DESC LIMIT 10`,
-      )
-        .bind(site.id, from, now)
-        .all<{ name: string; n: number; value: number }>(),
-      c.env.DB.prepare(
-        `SELECT metric AS name, COUNT(*) AS n FROM events
-          WHERE site_id = ? AND ts >= ? AND ts < ?
-            AND metric NOT IN ('pageview','LCP','INP','CLS','FCP','TTFB')
-          GROUP BY metric ORDER BY n DESC LIMIT 10`,
-      )
-        .bind(site.id, from, now)
-        .all<{ name: string; n: number }>(),
-      c.env.DB.prepare(
-        `SELECT country, COUNT(*) AS n FROM events
-          WHERE site_id = ? AND ts >= ? AND ts < ? AND country IS NOT NULL
-          GROUP BY country ORDER BY n DESC LIMIT 6`,
-      )
-        .bind(site.id, from, now)
-        .all<{ country: string; n: number }>(),
-      c.env.DB.prepare(
-        "SELECT COUNT(*) AS n FROM events WHERE site_id = ? AND ts >= ?",
-      )
-        .bind(site.id, now - 30 * 60_000)
-        .all<{ n: number }>(),
-      c.env.DB.prepare(
-        "SELECT COUNT(DISTINCT session_id) AS n FROM sessions WHERE site_id = ? AND last_seen_at >= ?",
-      )
-        .bind(site.id, now - 30 * 60_000)
-        .all<{ n: number }>(),
-      c.env.DB.prepare(
-        `SELECT path, COUNT(*) AS n FROM events
-          WHERE site_id = ? AND metric = 'pageview' AND ts >= ? AND path IS NOT NULL
-          GROUP BY path ORDER BY n DESC LIMIT 5`,
-      )
-        .bind(site.id, now - 30 * 60_000)
-        .all<{ path: string; n: number }>(),
-    ]);
-
-  const totals = { pageviews: 0, visitors: 0, sessions: 0, events: 0, customEvents: 0, conversions: 0, goals: 0 };
-  for (const row of metricRows.results) {
-    totals.events += row.n;
-    totals.conversions += row.conversions ?? 0;
-    if (row.metric === "pageview") totals.pageviews += row.n;
-    else if (!VITAL_METRICS.includes(row.metric as (typeof VITAL_METRICS)[number])) {
-      totals.customEvents += row.n;
-    }
-  }
-  totals.visitors = sessionRows.results[0]?.visitors ?? 0;
-  totals.sessions = sessionRows.results[0]?.n ?? 0;
-
-  const series = emptySeries(buckets, bucketMs, from);
-  const firstBucket = Math.floor(from / bucketMs);
-  for (const row of seriesRows.results) {
-    const index = row.bucket - firstBucket;
-    if (index < 0 || index >= series.length) continue;
-    series[index].events += row.n;
-    if (row.metric === "pageview") series[index].pageviews += row.n;
-  }
-  for (const row of sessionSeries.results) {
-    const index = row.bucket - firstBucket;
-    if (index < 0 || index >= series.length) continue;
-    series[index].visitors = row.n;
-  }
-
-  const payload = {
-    ok: true,
-    range,
-    generatedAt: now,
-    site: { id: site.public_id, name: site.name, origin: site.origin },
-    totals,
-    series,
-    topPages: pageRows.results,
-    referrers: referrerRows.results,
-    campaigns: campaignRows.results,
-    devices: deviceRows.results,
-    goals: goalRows.results,
-    customEvents: customRows.results,
-    countries: countryRows.results,
-    realtime: {
-      events: liveCount.results[0]?.n ?? 0,
-      activeSessions: liveSessions.results[0]?.n ?? 0,
-      topPages: livePages.results,
-    },
-  };
+  const payload = await analyticsSummary(c.env.DB, site, range);
   const result = c.json(payload, 200);
   result.headers.set("Cache-Control", "public, max-age=60");
   await cache.put(cacheKey, result.clone());
@@ -1527,110 +1303,15 @@ app.get("/api/analytics/sessions", async (c) => {
    RUM reports
    ========================================================================== */
 
-/**
- * Percentile window size. The scan is bounded to the most recent N samples so
- * a busy site cannot burn the daily D1 row budget with one dashboard poll.
- * When the cap is hit the response says so (`sampled: true`).
- */
-const RUM_SCAN_LIMIT = 20000;
-
-type VitalStats = {
-  metric: string;
-  samples: number;
-  avg: number | null;
-  p50: number | null;
-  p75: number | null;
-  good: number;
-  needsImprovement: number;
-  poor: number;
-  sufficient: boolean;
-  sampled: boolean;
-  note?: string;
-};
-
-/**
- * Percentiles are computed in SQL with a window function (no row transfer).
- * When there are too few samples the percentile stays null on purpose —
- * an invented number is worse than "not enough data".
- */
-async function vitalStats(
-  db: D1Database,
-  siteId: number,
-  metric: string,
-  from: number,
-  now: number,
-): Promise<VitalStats> {
-  const { results } = await db
-    .prepare(
-      `WITH vals AS (
-         SELECT value, rating FROM events
-          WHERE site_id = ? AND metric = ? AND ts >= ? AND ts < ? AND value IS NOT NULL
-          ORDER BY ts DESC
-          LIMIT ?
-       ),
-       ranked AS (
-         SELECT value, rating,
-                ROW_NUMBER() OVER (ORDER BY value) AS rn,
-                COUNT(*) OVER () AS cnt
-           FROM vals
-       )
-       SELECT MAX(cnt) AS samples,
-              AVG(value) AS avg,
-              MAX(CASE WHEN rn = CAST((cnt - 1) * 0.50 AS INT) + 1 THEN value END) AS p50,
-              MAX(CASE WHEN rn = CAST((cnt - 1) * 0.75 AS INT) + 1 THEN value END) AS p75,
-              SUM(CASE WHEN rating = 'good' THEN 1 ELSE 0 END) AS good,
-              SUM(CASE WHEN rating = 'needs-improvement' THEN 1 ELSE 0 END) AS ni,
-              SUM(CASE WHEN rating = 'poor' THEN 1 ELSE 0 END) AS poor
-         FROM ranked`,
-    )
-    .bind(siteId, metric, from, now, RUM_SCAN_LIMIT)
-    .all<{
-      samples: number;
-      avg: number | null;
-      p50: number | null;
-      p75: number | null;
-      good: number | null;
-      ni: number | null;
-      poor: number | null;
-    }>();
-
-  const row = results[0];
-  const samples = row?.samples ?? 0;
-  const sufficient = samples >= MIN_P75_SAMPLES;
-  const sampled = samples >= RUM_SCAN_LIMIT;
-
-  return {
-    metric,
-    samples,
-    avg: row?.avg ?? null,
-    p50: sufficient ? row?.p50 ?? null : null,
-    p75: sufficient ? row?.p75 ?? null : null,
-    good: row?.good ?? 0,
-    needsImprovement: row?.ni ?? 0,
-    poor: row?.poor ?? 0,
-    sufficient,
-    sampled,
-    ...(sampled
-      ? {
-          note: `Computed over the most recent ${RUM_SCAN_LIMIT} samples (older ones are not scanned).`,
-        }
-      : sufficient
-        ? {}
-        : { note: `At least ${MIN_P75_SAMPLES} samples are needed for a percentile; ${samples} collected.` }),
-  };
-}
-
 app.get("/api/rum/summary", async (c) => {
   const range = resolveRange(c.req.query("range"));
-  const now = Date.now();
-  const from = now - RANGES[range].windowMs;
   const { site, response } = await resolveReportSite(c);
   if (response) return response;
   if (!site) {
     return c.json({
       ok: true,
       range,
-      metrics: VITAL_METRICS.map((metric) => ({
+      metrics: VITAL_METRIC_LIST.map((metric) => ({
         metric,
         samples: 0,
         avg: null,
@@ -1647,8 +1328,7 @@ app.get("/api/rum/summary", async (c) => {
   }
 
   // The percentile scan is the most expensive query in the app, so the result
-  // is cached for five minutes (per data centre) instead of being recomputed
-  // on every console poll. `?fresh=1` bypasses the cache.
+  // is cached for five minutes (per data centre). `?fresh=1` bypasses it.
   const cache = caches.default;
   const cacheKey = new Request(`https://dynamic.internal/api/rum/${site.id}/${range}`);
   if (c.req.query("fresh") !== "1") {
@@ -1656,18 +1336,7 @@ app.get("/api/rum/summary", async (c) => {
     if (hit) return hit;
   }
 
-  const metrics = await Promise.all(
-    VITAL_METRICS.map((metric) => vitalStats(c.env.DB, site.id, metric, from, now)),
-  );
-
-  const payload = {
-    ok: true,
-    range,
-    generatedAt: now,
-    minSamples: MIN_P75_SAMPLES,
-    sampleLimit: RUM_SCAN_LIMIT,
-    metrics,
-  };
+  const payload = await rumSummary(c.env.DB, site.id, range);
   const result = c.json(payload, 200);
   result.headers.set("Cache-Control", "public, max-age=300");
   await cache.put(cacheKey, result.clone());
@@ -2303,7 +1972,7 @@ app.get("/api/stats", async (c) => {
       events: 0,
       custom: 0,
     },
-    vitals: VITAL_METRICS.map((metric) => {
+    vitals: VITAL_METRIC_LIST.map((metric) => {
       const row = vitalRows.results.find((entry) => entry.metric === metric);
       return {
         metric,
@@ -2329,12 +1998,90 @@ app.get("/api/stats", async (c) => {
    Fallbacks
    ========================================================================== */
 
+/* ==========================================================================
+   Application API — authentication, projects, DNS verification
+   ========================================================================== */
+
+/** The product application is served from its own origin (app.*). */
+function isAppHost(hostname: string): boolean {
+  return hostname === "app.dynamic.crty-dev.com" || hostname.startsWith("app.");
+}
+
+/** CORS for the credentialed application API (same origin in production). */
+app.use("/api/projects/*", async (c, next) => {
+  const origin = c.req.header("origin");
+  if (origin && allowedOrigins(c.env).includes(origin)) {
+    c.header("Access-Control-Allow-Origin", origin);
+    c.header("Access-Control-Allow-Credentials", "true");
+    c.header("Vary", "Origin");
+  }
+  if (c.req.method === "OPTIONS") {
+    c.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+    c.header("Access-Control-Allow-Headers", "content-type, authorization");
+    c.header("Access-Control-Max-Age", "600");
+    return c.body(null, 204);
+  }
+  await next();
+});
+
+app.use("/api/auth/*", async (c, next) => {
+  const origin = c.req.header("origin");
+  if (origin && allowedOrigins(c.env).includes(origin)) {
+    c.header("Access-Control-Allow-Origin", origin);
+    c.header("Access-Control-Allow-Credentials", "true");
+    c.header("Vary", "Origin");
+  }
+  await next();
+});
+
+/**
+ * Better Auth handles registration, login, verification mails, password reset
+ * and sessions. The instance is created per Worker isolate and cached.
+ */
+app.all("/api/auth/*", async (c) => {
+  const auth = createAuth(c.env);
+  return auth.handler(c.req.raw);
+});
+
+/** Website projects + DNS verification (ownership scoped). */
+app.route("/api/projects", createProjectsApp());
+
+/** Local development mail outbox - never mounted in production. */
+app.get("/api/dev/mailbox", (c) => {
+  if (!config(c.env).isDev) return c.json({ error: "not_found" }, 404);
+  return c.json({ ok: true, mails: readOutbox() });
+});
+
 /** Unknown API routes stay JSON instead of falling through to the SPA. */
 app.all("/api", (c) => c.json({ error: "not_found" }, 404));
 app.all("/api/*", (c) => c.json({ error: "not_found" }, 404));
 
-/** Everything else is a static asset; SPA fallback serves index.html. */
-app.on(["GET", "HEAD"], "*", (c) => c.env.ASSETS.fetch(c.req.raw));
+/**
+ * Everything else is a static asset.
+ *
+ * The marketing site and the product application are two SPAs in one Worker:
+ * the app is built into `dist/app` and served on the app.* host (or under
+ * the /app path in local development).
+ */
+app.on(["GET", "HEAD"], "*", async (c) => {
+  const url = new URL(c.req.url);
+  const appRequest =
+    isAppHost(url.hostname) || url.pathname === "/app" || url.pathname.startsWith("/app/");
+
+  // The assets binding runs with not_found_handling: none, so the Worker
+  // decides what a client side route means: the app shell for app.*, the
+  // marketing shell for everything else.
+  let path = appRequest ? url.pathname.replace(/^\/app/, "") : url.pathname;
+  if (path === "") path = "/";
+  if (!/\.[a-z0-9]+$/i.test(path)) path = "/index.html";
+
+  const target = new URL(`${appRequest ? "/app" : ""}${path}`, url);
+  const response = await c.env.ASSETS.fetch(new Request(target, { method: c.req.method }));
+  if (response.status !== 404) return response;
+
+  const shell = new URL(`${appRequest ? "/app" : ""}/index.html`, url);
+  return c.env.ASSETS.fetch(new Request(shell, { method: c.req.method }));
+});
 
 /**
  * Daily retention job: deletes events older than the site retention window.

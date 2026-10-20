@@ -8,7 +8,8 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "none",
+    "html_handling": "none"
   },
   "d1_databases": [
     {
@@ -24,7 +25,10 @@
   "vars": {
     "CLOUDINARY_CLOUD_NAME": "di9c12gg6",
     "CLOUDINARY_UPLOAD_KEY": "657115753521274",
-    "MAX_SITES": "500"
+    "MAX_SITES": "500",
+    "APP_URL": "https://app.dynamic.crty-dev.com",
+    "MARKETING_URL": "https://dynamic.crty-dev.com",
+    "MAIL_FROM": "DYNAMIC <no-reply@crty-dev.com>"
   },
   // Daily retention job: drops events older than the site retention window.
   "triggers": {

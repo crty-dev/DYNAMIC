@@ -27,3 +27,29 @@ MEDIA_UPLOAD_TOKEN=<GENERATE_A_RANDOM_TOKEN>
 # retention purge, data export and erasure). Required for the admin API.
 # Generate: node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
 ADMIN_API_KEY=<GENERATE_A_RANDOM_TOKEN>
+
+# --- DYNAMIC application (Better Auth) ---
+# Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+BETTER_AUTH_SECRET=<GENERATE_A_32_CHARACTER_SECRET>
+
+# Public URLs of the two origins
+APP_URL=http://localhost:5174
+MARKETING_URL=http://localhost:5173
+
+# Sender address for the verification / reset mails
+MAIL_FROM=DYNAMIC <no-reply@crty-dev.com>
+
+# Transactional mail provider (optional). Without it the mails are only
+# written to the local outbox in development.
+# MAIL_PROVIDER_URL=https://api.resend.com/emails
+# MAIL_PROVIDER_TOKEN=<provider api key>
+
+# Cloudflare Turnstile (optional bot protection)
+# TURNSTILE_SITE_KEY=<public site key>
+# TURNSTILE_SECRET_KEY=<secret key>
+
+# DNS-over-HTTPS resolver used for the TXT verification (optional)
+# DNS_RESOLVER_URL=https://cloudflare-dns.com/dns-query
+
+# Minimum seconds between two DNS verification attempts (default 10)
+# PROJECT_VERIFY_INTERVAL_MS=10000

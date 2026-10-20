@@ -23,6 +23,7 @@ import DataRain from "../components/ui/data-rain";
 import CloudinaryImage from "../components/ui/cloudinary-image";
 import { Hero } from "../components/ui/tailwind-css-background-snippet";
 import { CLOUDINARY_ASSETS, type CloudinaryAssetKey } from "../lib/cloudinary";
+import { APP_URL } from "../lib/app-url";
 import { useHeroParallax, useMediaQuery, useReveal } from "./hooks";
 import "./landing.css";
 
@@ -77,7 +78,7 @@ const FOOTER_COLUMNS = [
       { label: "Analytics", href: "#features" },
       { label: "RUM", href: "#rum" },
       { label: "SDK", href: "#sdk" },
-      { label: "Console", href: "/dashboard" },
+      { label: "Console", href: APP_URL },
     ],
   },
 ];
@@ -145,13 +146,16 @@ export default function LandingPage() {
             <a href="#features">Features</a>
             <a href="#rum">RUM</a>
             <a href="#sdk">SDK</a>
-            <a href="/dashboard">Console</a>
+            <a href={APP_URL}>Console</a>
           </nav>
           <div className="nav__actions">
             <a className="button button--ghost button--sm" href={REPO} target="_blank" rel="noreferrer">
               <GithubMark size={15} /> GitHub
             </a>
-            <a className="button button--solid button--sm" href="/dashboard">
+            <a className="button button--ghost button--sm" href={`${APP_URL}/login`}>
+              Sign in
+            </a>
+            <a className="button button--solid button--sm" href={`${APP_URL}/register`}>
               Get started
             </a>
           </div>
@@ -206,7 +210,7 @@ export default function LandingPage() {
               on Cloudflare&apos;s free tier. No cookies. No personal data. No surprise invoices.
             </p>
             <div className="hero__actions" data-reveal style={delay(220)}>
-              <a className="button button--solid" href="/dashboard">
+              <a className="button button--solid" href={`${APP_URL}/register`}>
                 Get started
               </a>
               <a className="button button--ghost" href={REPO} target="_blank" rel="noreferrer">
@@ -349,7 +353,7 @@ export default function LandingPage() {
                   <a className="button button--light" href={REPO} target="_blank" rel="noreferrer">
                     Deploy your own
                   </a>
-                  <a className="button button--on-color" href="/dashboard">
+                  <a className="button button--on-color" href={APP_URL}>
                     Explore the console
                   </a>
                 </div>

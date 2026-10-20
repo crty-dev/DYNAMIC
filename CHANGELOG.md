@@ -6,6 +6,18 @@ Bu dosya [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) biçimini ve
 ## [Unreleased]
 
 ### Eklendi
+- **DYNAMIC Console uygulaması** (`app.dynamic.crty-dev.com`): Better Auth ile
+  e-posta/şifre kaydı ve girişi, e-posta doğrulama, şifre sıfırlama, oturum
+  yönetimi, oturum sonu, hesap ayarları.
+- **Web sitesi projeleri:** oluşturma, yeniden adlandırma, silme (açık onay),
+  sahiplik izolasyonu, doğrulama durumu ve kurulum talimatı.
+- **DNS TXT doğrulama:** sunucu tarafında DoH ile tek seferlik sorgu, rastgele
+  48 haneli token, `pending → verifying → verified` durum makinesi, 10 sn / 20
+  deneme sınırları, yinelenen alan adı reddi.
+- **E-posta adaptörü:** sağlayıcıdan bağımsız; geliştirmede `/api/dev/mailbox`
+  outbox'ı.
+- **Turnstile desteği:** secret tanımlıysa kayıt/giriş/sıfırlama isteklerinde
+  bot koruması.
 - `GET /api/analytics/*` rapor uçları: özet, zaman serisi, sayfa, referrer/UTM,
   cihaz, özel event, goal ve oturum kırılımları ile gerçek zamanlı görünüm.
 - `GET /api/rum/*` uçları: LCP/INP/CLS/FCP/TTFB için ortalama, p50, p75 ve

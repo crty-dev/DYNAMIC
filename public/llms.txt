@@ -25,6 +25,14 @@ small SDK, validated on the edge and written to a database you own.
 - **Stack:** React 19, TypeScript, Vite, Tailwind CSS v4, Hono, Cloudflare Workers, D1
 - **Pricing:** free, on Cloudflare's Free plan (100k requests/day, 5 GB D1)
 
+## Console (product application)
+
+- App: https://app.dynamic.crty-dev.com
+- Email + password accounts (Better Auth on D1), e-mail verification, password reset.
+- Website projects with DNS TXT verification:
+  `_dynamic-verification.<hostname>` = `dynamic-verification=<token>`.
+- Per project install snippet: `<script async src="/js/dynamic.js" data-site="<id>"></script>`.
+
 ## API
 
 Collect endpoint (POST, JSON):

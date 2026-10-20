@@ -7,7 +7,14 @@
   "logo": "https://dynamic.crty-dev.com/brand/icon-512.png",
   "license": "MIT",
   "language": "en",
-  "categories": ["analytics", "rum", "web-vitals", "privacy", "self-hosted", "cloudflare"],
+  "categories": [
+    "analytics",
+    "rum",
+    "web-vitals",
+    "privacy",
+    "self-hosted",
+    "cloudflare"
+  ],
   "keywords": [
     "privacy-first analytics",
     "real user monitoring",
@@ -63,13 +70,23 @@
         "path": "/api/collect",
         "summary": "Ingest a batch of SDK events.",
         "contentType": "application/json",
-        "limits": { "maxEvents": 64, "maxBodyBytes": 131072 }
+        "limits": {
+          "maxEvents": 64,
+          "maxBodyBytes": 131072
+        }
       },
       {
         "method": "GET",
         "path": "/api/stats",
         "summary": "Aggregate traffic, Web Vitals and events for the console.",
-        "query": { "range": ["24h", "7d", "30d"], "site": "optional public id or hostname" }
+        "query": {
+          "range": [
+            "24h",
+            "7d",
+            "30d"
+          ],
+          "site": "optional public id or hostname"
+        }
       },
       {
         "method": "GET",
@@ -99,5 +116,18 @@
     "Cloudflare Workers",
     "Cloudflare D1",
     "Cloudinary"
+  ],
+  "applications": [
+    {
+      "name": "DYNAMIC Console",
+      "url": "https://app.dynamic.crty-dev.com",
+      "type": "product-application",
+      "authentication": "email-password",
+      "features": [
+        "website projects",
+        "DNS TXT domain verification",
+        "analytics and RUM overview per project"
+      ]
+    }
   ]
 }
