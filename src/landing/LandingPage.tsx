@@ -10,21 +10,19 @@ import {
   Scale,
   Zap,
 } from "lucide-react";
-import logoMarkWebp from "../../images/png-to-webp/logo-removebg-preview.webp";
 import logoMarkPng from "../../images/logo-removebg-preview.png";
-import analyticsIconWebp from "../../images/png-to-webp/DYNAMIC_Analytics-removebg-preview.webp";
 import analyticsIconPng from "../../images/DYNAMIC_Analytics-removebg-preview.png";
-import rumIconWebp from "../../images/png-to-webp/DYNAMIC_RUM-removebg-preview.webp";
 import rumIconPng from "../../images/DYNAMIC_RUM-removebg-preview.png";
-import sdkIconWebp from "../../images/png-to-webp/DYNAMIC_SDK-removebg-preview.webp";
 import sdkIconPng from "../../images/DYNAMIC_SDK-removebg-preview.png";
-import consoleIconWebp from "../../images/png-to-webp/DYNAMIC_Console-removebg-preview.webp";
 import consoleIconPng from "../../images/DYNAMIC_Console-removebg-preview.png";
 import GithubMark from "./GithubMark";
 import DashMock from "./DashMock";
 import TypewriterCode from "./TypewriterCode";
 import HalftoneWordmarkFooter from "../components/ui/halftone-wordmark-footer";
 import DataRain from "../components/ui/data-rain";
+import CloudinaryImage from "../components/ui/cloudinary-image";
+import { Hero } from "../components/ui/tailwind-css-background-snippet";
+import { CLOUDINARY_ASSETS, type CloudinaryAssetKey } from "../lib/cloudinary";
 import { useHeroParallax, useMediaQuery, useReveal } from "./hooks";
 import "./landing.css";
 
@@ -86,34 +84,34 @@ const FOOTER_COLUMNS = [
 
 function BrandMark({ className, eager = false }: { className: string; eager?: boolean }) {
   return (
-    <picture className={className}>
-      <source srcSet={logoMarkWebp} type="image/webp" />
-      <img
-        src={logoMarkPng}
-        alt=""
-        width={500}
-        height={500}
-        loading={eager ? "eager" : "lazy"}
-        decoding="async"
-      />
-    </picture>
+    <CloudinaryImage
+      className={className}
+      publicId={CLOUDINARY_ASSETS.logo}
+      fallbackSrc={logoMarkPng}
+      width={200}
+      height={200}
+      loading={eager ? "eager" : "lazy"}
+    />
   );
 }
 
 function ProductIcon({
-  webp,
-  png,
+  asset,
+  fallback,
   className,
 }: {
-  webp: string;
-  png: string;
+  asset: CloudinaryAssetKey;
+  fallback: string;
   className: string;
 }) {
   return (
-    <picture className={className}>
-      <source srcSet={webp} type="image/webp" />
-      <img src={png} alt="" width={500} height={500} loading="lazy" decoding="async" />
-    </picture>
+    <CloudinaryImage
+      className={className}
+      publicId={CLOUDINARY_ASSETS[asset]}
+      fallbackSrc={fallback}
+      width={200}
+      height={200}
+    />
   );
 }
 
@@ -211,7 +209,10 @@ export default function LandingPage() {
             </div>
 
             <div className="hero__showcase" data-reveal style={delay(240)}>
-              <DashMock />
+              <div className="hero__stage">
+                <Hero wrapperClassName="hero__stage-bg" />
+                <DashMock />
+              </div>
             </div>
           </div>
         </section>
@@ -247,8 +248,8 @@ export default function LandingPage() {
               <article className="card card--half" data-reveal>
                 <ProductIcon
                   className="card__icon"
-                  webp={analyticsIconWebp}
-                  png={analyticsIconPng}
+                  asset="analytics"
+                  fallback={analyticsIconPng}
                 />
                 <p className="card__name">DYNAMIC Analytics</p>
                 <h3 className="card__title">Analytics Dashboard</h3>
@@ -264,7 +265,7 @@ export default function LandingPage() {
               </article>
 
               <article className="card card--half" id="rum" data-reveal style={delay(90)}>
-                <ProductIcon className="card__icon" webp={rumIconWebp} png={rumIconPng} />
+                <ProductIcon className="card__icon" asset="rum" fallback={rumIconPng} />
                 <p className="card__name">DYNAMIC RUM</p>
                 <h3 className="card__title">Real User Monitoring</h3>
                 <p className="card__text">
@@ -284,8 +285,8 @@ export default function LandingPage() {
                 <div className="card__eyebrow">
                   <ProductIcon
                     className="card__icon card__icon--sm"
-                    webp={sdkIconWebp}
-                    png={sdkIconPng}
+                    asset="sdk"
+                    fallback={sdkIconPng}
                   />
                   <p className="card__name">DYNAMIC SDK + Console</p>
                 </div>
@@ -314,8 +315,8 @@ export default function LandingPage() {
                 <span className="cta__badge" aria-hidden>
                   <ProductIcon
                     className="cta__icon"
-                    webp={consoleIconWebp}
-                    png={consoleIconPng}
+                    asset="console"
+                    fallback={consoleIconPng}
                   />
                 </span>
                 <h2 className="cta__title" id="cta-title">

@@ -18,6 +18,8 @@
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
+    "@cloudinary/react": "^1.14.4",
+    "@cloudinary/url-gen": "^1.22.0",
     "@tanstack/react-query": "^5.104.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

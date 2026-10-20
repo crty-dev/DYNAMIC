@@ -228,6 +228,12 @@ satırı ve "back to top" kelimenin üstünde durur.
 motorudur; "The signal" bandında metnin arkasında çalışır ve renklerini
 `--dr-calm / --dr-mid / --dr-hot` değişkenlerinden (DYNAMIC paleti) alır.
 
+`src/components/ui/tailwind-css-background-snippet.tsx` hero'nun gösterge
+alanının arkasındaki radyal ışığı üretir (`radial-gradient`, marka mavisi →
+turkuaz, düşük opaklık). Tailwind arbitrary background sınıfı olarak gelir;
+hero görseli `.hero__stage` içinde `isolation: isolate` ile stack'lenir, bu
+yüzden ışık dashboard mock'unun arkasında kalır ve sayfaya taşmaz.
+
 ### Animasyon
 
 Hero grafiğinin çizilmesi ve fareyle gezilebilen tooltip, dashboard parallax'ı,
@@ -273,6 +279,30 @@ npx wrangler secret put MEDIA_UPLOAD_TOKEN
 İstemci yardımcıları `src/lib/cloudinary.ts` içindedir
 (`cloudinaryUrl()`, `fetchMediaConfig()`, `requestUploadSignature()`).
 Klasörler: `dynamic/brand`, `dynamic/uploads`, `dynamic/social`.
+
+### Marka görselleri Cloudinary'den
+
+Sitedeki marka işaretleri resmi Cloudinary React SDK'si ile servis edilir:
+
+```bash
+npm i @cloudinary/url-gen @cloudinary/react
+```
+
+`src/components/ui/cloudinary-image.tsx` SDK'nın `Cloudinary` (url-gen) ve
+`AdvancedImage` bileşenlerini sarar: teslim `f_auto` / `q_auto` ile gelir,
+istediğimiz kutuya `c_fit` ile ölçeklenir. Public id'ler
+`CLOUDINARY_ASSETS` sabitinde (`src/lib/cloudinary.ts`):
+
+| Varlık | Public id |
+| --- | --- |
+| Logo | `logo-removebg-preview_dnbcty` |
+| Analytics | `DYNAMIC_Analytics-removebg-preview_jiuqiw` |
+| RUM | `DYNAMIC_RUM-removebg-preview_xmrfrg` |
+| SDK | `DYNAMIC_SDK-removebg-preview_mriaab` |
+| Console | `DYNAMIC_Console-removebg-preview_machdd` |
+
+Her görselin **yerel yedeği** de vardır: CDN'e ulaşılamazsa `onError` ile
+paket içindeki PNG'ye düşer, marka işareti hiçbir koşulda kaybolmaz.
 
 **Not:** `.opencode/` klasörü yerel MCP yapılandırması içerdiğinden (canlı
 API anahtarları) repoya girmemesi için `.gitignore` kurallarına dahildir.

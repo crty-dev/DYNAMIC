@@ -17,6 +17,21 @@ export const CLOUDINARY_FOLDERS = {
   social: "dynamic/social",
 } as const;
 
+/**
+ * Brand assets that live in Cloudinary (public ids, without the version
+ * prefix). The same files are bundled locally as a fallback, so a CDN
+ * hiccup never breaks the brand mark.
+ */
+export const CLOUDINARY_ASSETS = {
+  logo: "logo-removebg-preview_dnbcty",
+  analytics: "DYNAMIC_Analytics-removebg-preview_jiuqiw",
+  rum: "DYNAMIC_RUM-removebg-preview_xmrfrg",
+  sdk: "DYNAMIC_SDK-removebg-preview_mriaab",
+  console: "DYNAMIC_Console-removebg-preview_machdd",
+} as const;
+
+export type CloudinaryAssetKey = keyof typeof CLOUDINARY_ASSETS;
+
 export type CloudinaryTransform = {
   width?: number;
   height?: number;

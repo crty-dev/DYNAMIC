@@ -11,9 +11,10 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import logoMarkWebp from "../../images/png-to-webp/logo-removebg-preview.webp";
 import logoMarkPng from "../../images/logo-removebg-preview.png";
 import { Analytics, Events, Overview, Pages, Rum, Settings as SettingsPage } from "./pages";
+import CloudinaryImage from "../components/ui/cloudinary-image";
+import { CLOUDINARY_ASSETS } from "../lib/cloudinary";
 import {
   ConsoleContext,
   RANGE_LABELS,
@@ -86,10 +87,14 @@ const PAGE_META: Record<string, { title: string; subtitle: string }> = {
 
 function BrandMark() {
   return (
-    <picture className="console__brand-mark">
-      <source srcSet={logoMarkWebp} type="image/webp" />
-      <img src={logoMarkPng} alt="" width={500} height={500} />
-    </picture>
+    <CloudinaryImage
+      className="console__brand-mark"
+      publicId={CLOUDINARY_ASSETS.logo}
+      fallbackSrc={logoMarkPng}
+      width={120}
+      height={120}
+      loading="eager"
+    />
   );
 }
 
