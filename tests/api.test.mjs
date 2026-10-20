@@ -197,7 +197,10 @@ describe("DYNAMIC API", () => {
     assert.equal(body.referrers[0].referrer, "news.ycombinator.com");
     assert.equal(body.campaigns[0].campaign, "spring");
     assert.ok(body.devices.length > 0);
-    assert.equal(body.series.length, 7);
+    // 7 days + the current partial bucket.
+    assert.equal(body.series.length, 8);
+    const lastBucket = body.series[body.series.length - 1];
+    assert.ok(lastBucket.pageviews >= 1, "today's pageview must be inside the series");
   });
 
   it("keeps sites isolated", async () => {

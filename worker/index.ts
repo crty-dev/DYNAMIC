@@ -894,9 +894,19 @@ function emptySeries(buckets: number, bucketMs: number, from: number) {
   }));
 }
 
+/**
+ * Number of buckets in a window: the full window plus the current (partial)
+ * bucket, so "today" is never dropped from the series.
+ */
+function bucketCount(range: RangeKey): number {
+  const { windowMs, bucketMs } = RANGES[range];
+  return Math.ceil(windowMs / bucketMs) + 1;
+}
+
 app.get("/api/analytics/summary", async (c) => {
   const range = resolveRange(c.req.query("range"));
-  const { windowMs, bucketMs, buckets } = RANGES[range];
+  const { windowMs, bucketMs } = RANGES[range];
+  const buckets = bucketCount(range);
   const now = Date.now();
   const from = now - windowMs;
   const resolved = await reportSite(c);
@@ -1068,7 +1078,8 @@ app.get("/api/analytics/summary", async (c) => {
 
 app.get("/api/analytics/timeseries", async (c) => {
   const range = resolveRange(c.req.query("range"));
-  const { windowMs, bucketMs, buckets } = RANGES[range];
+  const { windowMs, bucketMs } = RANGES[range];
+  const buckets = bucketCount(range);
   const now = Date.now();
   const from = now - windowMs;
   const resolved = await reportSite(c);
@@ -1439,7 +1450,8 @@ app.get("/api/rum/summary", async (c) => {
 app.get("/api/rum/timeseries", async (c) => {
   const range = resolveRange(c.req.query("range"));
   const metric = (c.req.query("metric") ?? "LCP").toUpperCase();
-  const { windowMs, bucketMs, buckets } = RANGES[range];
+  const { windowMs, bucketMs } = RANGES[range];
+  const buckets = bucketCount(range);
   const now = Date.now();
   const from = now - windowMs;
   const resolved = await reportSite(c);
@@ -1896,7 +1908,7 @@ app.get("/api/stats", async (c) => {
       site: null,
       totals: { pageviews: 0, visitors: 0, events: 0, custom: 0 },
       vitals: [],
-      series: emptySeries(RANGES[range].buckets, RANGES[range].bucketMs, from),
+      series: emptySeries(bucketCount(range), RANGES[range].bucketMs, from),
       topPages: [],
       topCountries: [],
       slowPages: [],
