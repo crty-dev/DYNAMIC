@@ -96,6 +96,15 @@ function TrafficChart({ stats, height = 260 }: { stats: Stats; height?: number }
     [stats.series, stats.range],
   );
 
+  if (stats.totals.events === 0) {
+    return (
+      <EmptyState
+        title="No traffic yet"
+        hint="Install the SDK and the first pageview draws the chart."
+      />
+    );
+  }
+
   return (
     <>
       <div className="console__chart" style={{ height }}>
