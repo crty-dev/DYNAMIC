@@ -56,6 +56,34 @@ export async function fetchSocialProviders(): Promise<string[]> {
 }
 
 /**
+ * Whether the deployment can send transactional mail.
+ *
+ * Without a provider the verification mail never leaves the Worker, so the
+ * console tells the visitor instead of pretending it was sent.
+ */
+export async function fetchMailStatus(): Promise<{
+  enabled: boolean;
+  verificationRequired: boolean;
+}> {
+  try {
+    const response = await fetch(`${API_ORIGIN}/api/auth/mail-status`, {
+      credentials: "include",
+    });
+    if (!response.ok) return { enabled: true, verificationRequired: true };
+    const payload = (await response.json()) as {
+      enabled?: boolean;
+      verificationRequired?: boolean;
+    };
+    return {
+      enabled: payload.enabled !== false,
+      verificationRequired: payload.verificationRequired !== false,
+    };
+  } catch {
+    return { enabled: true, verificationRequired: true };
+  }
+}
+
+/**
  * Where the application is mounted on this origin: "/" on the app domain,
  * "/app" when it is served from the marketing origin.
  */

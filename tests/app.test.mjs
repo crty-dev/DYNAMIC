@@ -208,6 +208,14 @@ describe("DYNAMIC application API", () => {
     assert.equal(signInResult.payload.code, "EMAIL_NOT_VERIFIED");
   });
 
+  it("reports whether the deployment can send mail", async () => {
+    const result = await api("/api/auth/mail-status");
+    assert.equal(result.status, 200);
+    // The test server has no mail provider, so the address check is off.
+    assert.equal(result.payload.enabled, false);
+    assert.equal(result.payload.verificationRequired, false);
+  });
+
   it("lists the social providers that are configured", async () => {
     // The test server has no OAuth credentials, so no provider may show up.
     const result = await api("/api/auth/providers");

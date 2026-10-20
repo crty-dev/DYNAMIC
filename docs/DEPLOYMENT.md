@@ -181,8 +181,17 @@ güvensiz bir oturum üretmez).
 | **Geliştirme** | — | `DEV_MODE=1` → mailler `GET /api/dev/mailbox` outbox'ına düşer. |
 
 Hiçbir sağlayıcı zorunlu değildir; projede ücretli bir servis zorunlu hâle
-getirilmez ve otomatik olarak ücretli plana geçilmez. **Sağlayıcı yoksa kullanıcı
-e-posta doğrulamasını tamamlayamaz** — üretime çıkmadan bir sağlayıcı tanımlayın.
+getirilmez ve otomatik olarak ücretli plana geçilmez.
+
+> **Dikkat:** Doğrulama e-postası **sağlayıcıya bağlıdır.** Sağlayıcı yoksa
+> hiçbir e-posta gönderilemez; bu durumda e-posta doğrulaması da zorunlu
+> olmaktan çıkar (aksi halde kimse kendi konsoluna giremezdi). Sağlayıcıyı
+> tanımladığınız anda doğrulama tekrar zorunlu hâle gelir. Durumu
+> `GET /api/auth/mail-status` ucu bildirir, konsol da kullanıcıya uyarı
+> gösterir. **Üretime çıkmadan bir sağlayıcı tanımlayın.**
+>
+> Doğrulama zorunluyken bir giriş denemesi e-postayı **otomatik yeniden
+> gönderir** (`sendOnSignIn`), "Tekrar gönder" düğmesine gerek kalmaz.
 
 ### 4.5 Sosyal giriş (isteğe bağlı)
 
@@ -263,6 +272,7 @@ npx wrangler d1 execute dynamic --remote \
 | `/api/super/users/:id/role` | POST | `{"role":"user"\|"admin"}` |
 | `/api/super/sites` | GET | tüm siteler (`?limit=`) |
 | `/api/super/sites/:publicId` | DELETE | site + verilerini siler |
+| `/api/auth/mail-status` | GET | e-posta gönderimi yapılandırılmış mı (public) |
 
 Ayrıca otomasyon için bearer token'lı klasik admin API'si duruyor:
 `/api/admin/*` (`Authorization: Bearer <ADMIN_API_KEY>`) — site oluşturma,

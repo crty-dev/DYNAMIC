@@ -126,6 +126,9 @@ export function config(env: Bindings) {
       from: env.MAIL_FROM ?? "DYNAMIC <no-reply@crty-dev.com>",
       providerUrl: env.MAIL_PROVIDER_URL ?? null,
       providerToken: env.MAIL_PROVIDER_TOKEN ?? null,
+      // Without a provider no mail leaves the Worker, so the address
+      // verification cannot be enforced either.
+      enabled: Boolean(env.MAIL_PROVIDER_URL && env.MAIL_PROVIDER_TOKEN),
     },
     ipAddress: {
       // Cloudflare replaces `cf-connecting-ip` with the real visitor address.

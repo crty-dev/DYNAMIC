@@ -1,4 +1,10 @@
-export { API_ORIGIN, APP_BASE_PATH, authClient, fetchSocialProviders } from "../lib/auth-client";
+export {
+  API_ORIGIN,
+  APP_BASE_PATH,
+  authClient,
+  fetchMailStatus,
+  fetchSocialProviders,
+} from "../lib/auth-client";
 
 import { API_ORIGIN } from "../lib/auth-client";
 

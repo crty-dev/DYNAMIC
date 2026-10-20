@@ -2233,6 +2233,22 @@ app.get("/api/auth/providers", (c) =>
 );
 
 /**
+ * Whether the deployment can send mail.
+ *
+ * The console uses it to tell the visitor that the verification mail cannot
+ * be sent (and that the address check is therefore not enforced) instead of
+ * silently swallowing the error.
+ */
+app.get("/api/auth/mail-status", (c) => {
+  const { mail } = config(c.env);
+  return c.json({
+    ok: true,
+    enabled: mail.enabled,
+    verificationRequired: mail.enabled,
+  });
+});
+
+/**
  * The base path is not a Better Auth route (it answers 404), but the
  * dashboard probes it to check the connection - so it gets a small descriptor.
  */

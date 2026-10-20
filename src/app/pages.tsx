@@ -5,6 +5,7 @@ import {
   ApiError,
   APP_BASE_PATH,
   authClient,
+  fetchMailStatus,
   fmtInt,
   fmtMetric,
   projectsApi,
@@ -154,6 +155,17 @@ export function Register() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const providers = useSocialProviders();
+  const [mailEnabled, setMailEnabled] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchMailStatus().then((status) => {
+      if (alive) setMailEnabled(status.enabled);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -174,6 +186,9 @@ export function Register() {
       );
       return;
     }
+    // The account is not verified yet, so there is no session: remember the
+    // address so that the verification page can resend the mail.
+    rememberPendingEmail(email);
     navigate("/verify-email", { replace: true });
   };
 
@@ -184,6 +199,12 @@ export function Register() {
           <h1>Hesap oluşturun</h1>
           <p>Ücretsiz, çerezsiz, kendi altyapınızda.</p>
         </div>
+        {mailEnabled ? null : (
+          <p className="alert alert--error">
+            Bu dağıtımda e-posta gönderimi yapılandırılmamış. Hesabınız oluşturuldu
+            ancak doğrulama e-postası gönderilemiyor.
+          </p>
+        )}
         <SocialButtons providers={providers} onError={setError} />
         <form className="card" onSubmit={submit}>
           {error ? <p className="alert alert--error">{error}</p> : null}
@@ -237,24 +258,74 @@ export function Register() {
 
 /* ---------------------------------------------------------- verify e-mail */
 
+/** The address of the account that was just created (no session yet). */
+const PENDING_EMAIL_KEY = "dynamic:pending-verification";
+
+function pendingEmail(): string {
+  try {
+    return window.sessionStorage.getItem(PENDING_EMAIL_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function rememberPendingEmail(email: string): void {
+  try {
+    window.sessionStorage.setItem(PENDING_EMAIL_KEY, email);
+  } catch {
+    /* private mode */
+  }
+}
+
 export function VerifyEmail() {
   const navigate = useNavigate();
   const session = authClient.useSession();
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [manualEmail, setManualEmail] = useState("");
+  const [mailEnabled, setMailEnabled] = useState(true);
+
+  // The account was created without a session (the address is not proven yet),
+  // so the address is remembered from the sign up form.
+  const known = session.data?.user?.email ?? pendingEmail();
+  const [email, setEmail] = useState(known);
+
+  useEffect(() => {
+    if (known) setEmail(known);
+  }, [known]);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchMailStatus().then((status) => {
+      if (alive) setMailEnabled(status.enabled);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const resend = async () => {
+    const target = (email || manualEmail).trim();
+    if (!target) {
+      setError("E-posta adresinizi yazın.");
+      return;
+    }
     setBusy(true);
     setError(null);
     const { error: resendError } = await authClient.sendVerificationEmail({
-      email: session.data?.user?.email ?? "",
+      email: target,
     });
     setBusy(false);
     if (resendError) {
-      setError("Doğrulama e-postası gönderilemedi. Biraz sonra tekrar deneyin.");
+      setError(
+        resendError.status === 400
+          ? "Doğrulama e-postası gönderilemedi. Adresi kontrol edin ya da biraz sonra tekrar deneyin."
+          : "Doğrulama e-postası gönderilemedi. Biraz sonra tekrar deneyin.",
+      );
       return;
     }
+    rememberPendingEmail(target);
     setSent(true);
   };
 
@@ -269,14 +340,34 @@ export function VerifyEmail() {
         <div className="auth__head">
           <h1>E-postanızı doğrulayın</h1>
           <p>
-            {session.data?.user?.email
-              ? `${session.data.user.email} adresine bir doğrulama bağlantısı gönderdik.`
+            {email
+              ? `${email} adresine bir doğrulama bağlantısı gönderdik.`
               : "Hesabınızı oluşturun, ardından doğrulama bağlantısını açın."}
           </p>
         </div>
         <div className="card stack">
+          {mailEnabled ? null : (
+            <p className="alert alert--error">
+              Bu dağıtımda e-posta gönderimi yapılandırılmamış, doğrulama e-postası
+              gönderilemiyor. Yöneticiyle iletişime geçin.
+            </p>
+          )}
           {sent ? <p className="alert alert--ok">Yeni doğrulama e-postası gönderildi.</p> : null}
           {error ? <p className="alert alert--error">{error}</p> : null}
+          {email ? null : (
+            <label className="field">
+              <span className="field__label">E-posta</span>
+              <input
+                className="field__input"
+                type="email"
+                autoComplete="email"
+                required
+                value={manualEmail}
+                onChange={(event) => setManualEmail(event.target.value)}
+                placeholder="siz@alanadi.com"
+              />
+            </label>
+          )}
           <p className="card__text">
             Doğrulama bağlantısı 1 saat geçerlidir. E-postayı bulamazsanız spam klasörünü kontrol edin
             ya da yeni bir bağlantı isteyin.

@@ -48,15 +48,20 @@ export function adminEmails(env: Bindings): string[] {
  * the role actually changes.
  */
 export async function promoteAdmin(env: Bindings, userId: string): Promise<void> {
-  const admins = adminEmails(env);
-  if (admins.length === 0) return;
-  const row = await env.DB.prepare("SELECT email, role FROM user WHERE id = ?")
-    .bind(userId)
-    .first<{ email?: string; role?: string }>();
-  if (!row?.email) return;
-  if (row.role === "admin") return;
-  if (!admins.includes(String(row.email).toLowerCase())) return;
-  await env.DB.prepare("UPDATE user SET role = 'admin' WHERE id = ?").bind(userId).run();
+  try {
+    const admins = adminEmails(env);
+    if (admins.length === 0) return;
+    const row = await env.DB.prepare("SELECT email, role FROM user WHERE id = ?")
+      .bind(userId)
+      .first<{ email?: string; role?: string }>();
+    if (!row?.email) return;
+    if (row.role === "admin") return;
+    if (!admins.includes(String(row.email).toLowerCase())) return;
+    await env.DB.prepare("UPDATE user SET role = 'admin' WHERE id = ?").bind(userId).run();
+  } catch (error) {
+    // A failed promotion must never break the sign in itself.
+    console.error("[auth] admin promotion failed", error);
+  }
 }
 
 /**
@@ -66,7 +71,7 @@ export async function promoteAdmin(env: Bindings, userId: string): Promise<void>
  * joins, trusted origins) without starting a Worker.
  */
 export function buildAuthOptions(env: Bindings): BetterAuthOptions {
-  const { appUrl, authBaseUrl, authSecret, turnstile, ipAddress } = config(env);
+  const { appUrl, authBaseUrl, authSecret, turnstile, ipAddress, mail, isDev } = config(env);
   const infraApiKey = env.BETTER_AUTH_API_KEY ?? "";
   const limitMax = Number(env.AUTH_RATE_LIMIT_MAX ?? 0) || null;
   const social = enabledSocialProviders(env);
@@ -101,6 +106,9 @@ export function buildAuthOptions(env: Bindings): BetterAuthOptions {
     database: env.DB,
     emailVerification: {
       sendOnSignUp: true,
+      // A sign in attempt of an unverified account resends the mail, so a
+      // visitor who lost the first mail does not need the form again.
+      sendOnSignIn: true,
       autoSignInAfterVerification: false,
       expiresIn: 60 * 60,
       sendVerificationEmail: async ({ user, url }: MailTarget) => {
@@ -121,7 +129,12 @@ export function buildAuthOptions(env: Bindings): BetterAuthOptions {
     },
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: true,
+      // The verification can only be enforced when a mail provider is
+      // configured: without one no address can be proven, and the requirement
+      // would lock every new account out of its own console. As soon as a
+      // provider is set the verification is enforced again. In development the
+      // outbox delivers the mail, so the check stays active there.
+      requireEmailVerification: mail.enabled || isDev,
       autoSignIn: false,
       minPasswordLength: 10,
       maxPasswordLength: 128,
