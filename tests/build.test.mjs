@@ -17,11 +17,29 @@ describe("production build", () => {
     );
     assert.equal(build.status, 0, `${build.stdout}\n${build.stderr}`);
 
+    // The landing build empties dist/, so the console bundle is built after
+    // it - otherwise dist/app would be missing after a test run.
+    const app = spawnSync(
+      process.execPath,
+      [
+        path.join(ROOT, "node_modules", "vite", "bin", "vite.js"),
+        "build",
+        "--config",
+        "vite.app.config.ts",
+      ],
+      { cwd: ROOT, encoding: "utf8" },
+    );
+    assert.equal(app.status, 0, `${app.stdout}\n${app.stderr}`);
+
     // The HTML shell ships the SDK and the app entry.
     const html = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
     assert.match(html, /\/js\/dynamic\.js/);
     assert.match(html, /data-site=/);
     assert.match(html, /\/assets\/index-[^"]+\.js/);
+
+    // The console is a second SPA under /app.
+    const appHtml = fs.readFileSync(path.join(DIST, "app", "index.html"), "utf8");
+    assert.match(appHtml, /\/app\/assets\/index-[^"]+\.js/);
 
     // The SDK is a small standalone bundle.
     const sdkPath = path.join(DIST, "js", "dynamic.js");

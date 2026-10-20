@@ -3,6 +3,7 @@ import { captcha } from "better-auth/plugins";
 import { dash } from "@better-auth/infra";
 import { config, type Bindings } from "./env";
 import { sendMail } from "./mailer";
+import { BETTER_AUTH_KV_URL } from "../src/lib/infra";
 
 /**
  * Better Auth configuration for Cloudflare Workers + D1.
@@ -145,7 +146,16 @@ export function buildAuthOptions(env: Bindings): BetterAuthOptions {
       ...plugins,
       // The dashboard plugin is only mounted when an API key is configured, so
       // the application keeps working without it.
-      ...(infraApiKey ? [dash({ apiKey: infraApiKey })] : []),
+      ...(infraApiKey
+        ? [
+            dash({
+              apiKey: infraApiKey,
+              // The project scoped KV endpoint of the dashboard, not the
+              // global bucket that every project shares.
+              kvUrl: BETTER_AUTH_KV_URL,
+            }),
+          ]
+        : []),
     ],
   };
 }

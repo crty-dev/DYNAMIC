@@ -19,7 +19,7 @@ const Circle = forwardRef<
   <div
     ref={ref}
     className={cn(
-      "z-10 flex size-10 shrink-0 items-center justify-center rounded-full border border-[color:var(--line)] bg-[color:var(--ink-deep)] p-2 sm:size-12 sm:p-3",
+      "z-10 flex size-11 shrink-0 items-center justify-center rounded-full border border-[color:var(--line)] bg-[color:var(--ink-deep)] p-2 sm:size-14 sm:p-3",
       className,
     )}
   >
@@ -49,9 +49,9 @@ export default function TechStackBeam() {
   const beam = {
     containerRef,
     toRef: centerRef,
-    pathColor: "rgba(35, 216, 202, 0.4)",
-    pathWidth: 1.5,
-    pathOpacity: 0.16,
+    pathColor: "rgba(35, 216, 202, 0.5)",
+    pathWidth: 1.75,
+    pathOpacity: 0.22,
     gradientStartColor: "#23d8ca",
     gradientStopColor: "#1d70fd",
   } as const;
@@ -81,7 +81,7 @@ export default function TechStackBeam() {
         <div className="flex flex-col items-center gap-3">
           <Circle
             ref={centerRef}
-            className="size-16 border-[color:var(--line-strong)] bg-[color:var(--ink)] p-3 sm:size-20 sm:p-4"
+            className="size-20 border-[color:var(--line-strong)] bg-[color:var(--ink)] p-3.5 sm:size-24 sm:p-4"
           >
             <img src={brandMark} alt="" width={48} height={48} className="h-full w-full" />
           </Circle>

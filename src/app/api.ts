@@ -1,5 +1,6 @@
 import { createAuthClient } from "better-auth/react";
 import { sentinelClient } from "@better-auth/infra/client";
+import { BETTER_AUTH_KV_URL } from "../lib/infra";
 
 /**
  * API origin.
@@ -19,7 +20,11 @@ export const authClient = createAuthClient({
   baseURL: API_ORIGIN,
   basePath: "/api/auth",
   fetchOptions: { credentials: "include" },
-  plugins: [sentinelClient()],
+  plugins: [
+    // The project scoped identify URL keeps the fingerprints out of the
+    // global bucket that every project on the platform shares.
+    sentinelClient({ identifyUrl: BETTER_AUTH_KV_URL }),
+  ],
 });
 
 /**

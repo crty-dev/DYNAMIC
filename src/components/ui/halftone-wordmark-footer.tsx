@@ -28,6 +28,8 @@ export type HalftonePreset = "night" | "paper" | "ember" | "cobalt";
 export interface FooterLink {
   label: string;
   href?: string;
+  /** Optional action. When set, the link behaves like a button. */
+  onClick?: () => void;
 }
 
 export interface FooterColumn {
@@ -162,7 +164,7 @@ const HWF_CSS = `
 .hwf-brand span { opacity: .45; }
 .hwf-col h3 { margin: 0; font: inherit; opacity: .4; font-weight: 500; }
 .hwf-col ul { list-style: none; margin: 0; padding: 0; }
-.hwf-col a, .hwf-up {
+.hwf-col a, .hwf-col button, .hwf-up {
   color: inherit; text-decoration: none; opacity: .78; background: none; border: 0; padding: 0;
   font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer;
   background-image: linear-gradient(currentColor, currentColor); background-size: 0% 1px;
@@ -173,8 +175,8 @@ const HWF_CSS = `
   display: inline-flex; align-items: center; min-height: 24px; min-width: 24px;
   padding: 8px 6px;
 }
-.hwf-col a:hover, .hwf-up:hover { opacity: 1; background-size: 100% 1px; }
-.hwf-col a:focus-visible, .hwf-up:focus-visible { outline: 1px solid currentColor; outline-offset: 3px; opacity: 1; }
+.hwf-col a:hover, .hwf-col button:hover, .hwf-up:hover { opacity: 1; background-size: 100% 1px; }
+.hwf-col a:focus-visible, .hwf-col button:focus-visible, .hwf-up:focus-visible { outline: 1px solid currentColor; outline-offset: 3px; opacity: 1; }
 .hwf-rule {
   position: relative; z-index: 1; display: flex; justify-content: flex-end; align-items: center; gap: 16px;
   margin: clamp(18px, 2.6vw, 30px) clamp(20px, 3.4vw, 44px) 0; padding-top: 12px;
@@ -187,7 +189,7 @@ const HWF_CSS = `
   .hwf-brand { grid-column: 1 / -1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hwf-col a, .hwf-up { transition: none; }
+  .hwf-col a, .hwf-col button, .hwf-up { transition: none; }
 }
 `;
 
@@ -493,7 +495,13 @@ export default function HalftoneWordmarkFooter({
             <ul>
               {col.links.map((l) => (
                 <li key={l.label}>
-                  <a href={l.href || "#"}>{l.label}</a>
+                  {l.onClick ? (
+                    <button type="button" onClick={l.onClick}>
+                      {l.label}
+                    </button>
+                  ) : (
+                    <a href={l.href || "#"}>{l.label}</a>
+                  )}
                 </li>
               ))}
             </ul>

@@ -14,6 +14,7 @@ import CloudinaryImage from "../components/ui/cloudinary-image";
 import { Hero } from "../components/ui/tailwind-css-background-snippet";
 import { CLOUDINARY_ASSETS, type CloudinaryAssetKey } from "../lib/cloudinary";
 import { APP_URL } from "../lib/app-url";
+import { openSupportChat } from "../lib/crisp";
 import { STACK } from "./stack";
 import { useHeroParallax, useMediaQuery, useReveal } from "./hooks";
 import "./landing.css";
@@ -30,6 +31,7 @@ const FOOTER_COLUMNS = [
   {
     title: "Contact",
     links: [
+      { label: "Canlı destek", onClick: openSupportChat },
       { label: "info@crty-dev.com", href: "mailto:info@crty-dev.com" },
       { label: "Open an issue", href: "https://github.com/crty-dev/DYNAMIC/issues" },
     ],

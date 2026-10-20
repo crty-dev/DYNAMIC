@@ -64,6 +64,12 @@ veri işlenmez; profilleme/otomatik karar yoktur).
   kapsamındadır.
 - Analytics çerezleri yalnızca **kendi sitenizde** kullanıyorsanız gerekir;
   DYNAMIC'in kendisi hiçbirini kurmaz.
+- **Pazarlama sitesindeki canlı destek (Crisp)**: üçüncü taraf sohbet betiği
+  sayfa yüklenirken **çağrılmaz**; yalnızca ziyaretçi footerdaki "Canlı
+  destek" bağlantısına tıkladığında yüklenir. O ana kadar hiçbir üçüncü taraf
+  isteği yapılmaz ve çerez kurulmaz. Tıklayan ziyaretçi için Crisp kendi
+  çerezlerini kurar ve sohbet içeriğini kendi sunucularında işler; bu nedenle
+  sohbet, DYNAMIC'in çerezsiz vaadi kapsamı **dışındadır** (bkz. bölüm 7).
 
 ## 5. Saklama ve silme
 
@@ -89,9 +95,12 @@ Her iki uç da yalnızca yönetici bearer token'ı ile çağrılabilir.
 | --- | --- | --- |
 | Cloudflare (Workers, D1, R2) | Alt işleyen / barındırıcı | Olay ve oturum satırları; IP yalnızca ağ katmanında, uygulamaya yazılmaz. |
 | Cloudinary (isteğe bağlı) | Medya barındırma | Yalnızca **medya** (görsel/OG görseli). Analitik verisi Cloudinary'ye **gitmez**. |
+| Crisp (pazarlama sitesindeki canlı destek) | Sohbet sağlayıcısı | Yalnızca **sohbeti başlatan ziyaretçi**: sohbet içeriği, e-posta adresi (varsa) ve Crisp'in kendi çerezleri. Ziyaretçi tıklamazsa hiçbir veri toplanmaz. |
+| Better Auth (Dash / Sentinel) | Kimlik doğrulama altyapısı | Oturum ve kullanıcı verisi Better Auth tarafından işlenir; Sentinel parmak izleri yalnızca bot koruması için, proje-scope KV adresinde tutulur. |
 | Alan adı kayıt sağlayıcısı | DNS | Yalnızca DNS kayıtları. |
 
-Üçüncü taraf izleme (analytics, reklam, sosyal medya pikseli) **yoktur**.
+Üçüncü taraf izleme (analytics, reklam, sosyal medya pikseli) **yoktur**; tek
+istisna, ziyaretçinin kendi isteğiyle açtığı canlı destek sohbetidir.
 
 ## 7b. Uygulama (Console) verileri
 

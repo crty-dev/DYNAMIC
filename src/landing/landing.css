@@ -512,7 +512,7 @@ html {
 /* Placeholder with the height of the diagram, so the lazy chunk does not
    shift the layout when it arrives. */
 .beam__fallback {
-  min-height: 420px;
+  min-height: 445px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--ink-deep);
@@ -520,7 +520,7 @@ html {
 
 @media (min-width: 640px) {
   .beam__fallback {
-    min-height: 400px;
+    min-height: 430px;
   }
 }
 
