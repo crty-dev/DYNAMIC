@@ -2051,7 +2051,23 @@ app.use("/api/auth/*", async (c, next) => {
  */
 app.all("/api/auth/*", async (c) => {
   const auth = createAuth(c.env);
-  return auth.handler(c.req.raw);
+  const response = await auth.handler(c.req.raw);
+
+  // The handler returns a raw Response, so the CORS headers have to be set on
+  // it directly (the Better Auth dashboard calls this endpoint from a browser).
+  const origin = c.req.header("origin");
+  if (origin && allowedOrigins(c.env).includes(origin)) {
+    const headers = new Headers(response.headers);
+    headers.set("Access-Control-Allow-Origin", origin);
+    headers.set("Access-Control-Allow-Credentials", "true");
+    headers.set("Vary", "Origin");
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+  return response;
 });
 
 /** Website projects + DNS verification (ownership scoped). */
