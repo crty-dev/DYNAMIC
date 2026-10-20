@@ -496,70 +496,30 @@ html {
 }
 
 /* ==========================================================================
-   Tech stack strip
+   Tech stack diagram
    ========================================================================== */
 
-.stack {
-  padding: 22px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+.beam {
+  padding: 96px 0 0;
+}
+
+.beam__canvas {
+  position: relative;
+}
+
+/* Placeholder with the height of the diagram, so the lazy chunk does not
+   shift the layout when it arrives. */
+.beam__fallback {
+  min-height: 420px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: var(--ink-deep);
 }
 
-.stack__head {
-  margin-bottom: 18px;
-  color: var(--faint);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  line-height: 1.5;
-  text-align: center;
-  text-transform: uppercase;
-}
-
-.stack__row {
-  overflow: hidden;
-}
-
-.stack__track {
-  display: flex;
-  width: max-content;
-  animation: marquee 42s linear infinite;
-  will-change: transform;
-}
-
-.stack__row:hover .stack__track {
-  animation-play-state: paused;
-}
-
-.stack__list {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  padding-right: 0;
-}
-
-.stack__item {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 0 28px;
-  border-right: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1.6;
-  white-space: nowrap;
-  transition: color 0.2s ease;
-}
-
-.stack__item svg {
-  flex: none;
-  color: var(--cyan);
-}
-
-.stack__item:hover {
-  color: var(--text);
+@media (min-width: 640px) {
+  .beam__fallback {
+    min-height: 400px;
+  }
 }
 
 /* ==========================================================================
@@ -1538,12 +1498,6 @@ html {
   }
   50% {
     transform: translateY(-3px);
-  }
-}
-
-@keyframes marquee {
-  to {
-    transform: translateX(-50%);
   }
 }
 

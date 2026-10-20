@@ -1,15 +1,5 @@
-import { useRef, useState, type CSSProperties } from "react";
-import {
-  ArrowRight,
-  Atom,
-  Braces,
-  Cloud,
-  Database,
-  Flame,
-  Gauge,
-  Scale,
-  Zap,
-} from "lucide-react";
+import { lazy, Suspense, useRef, useState, type CSSProperties } from "react";
+import { ArrowRight } from "lucide-react";
 import logoMarkPng from "../../images/png-to-webp/logo-removebg-preview.webp";
 import analyticsIconPng from "../../images/png-to-webp/DYNAMIC_Analytics-removebg-preview.webp";
 import rumIconPng from "../../images/png-to-webp/DYNAMIC_RUM-removebg-preview.webp";
@@ -24,34 +14,15 @@ import CloudinaryImage from "../components/ui/cloudinary-image";
 import { Hero } from "../components/ui/tailwind-css-background-snippet";
 import { CLOUDINARY_ASSETS, type CloudinaryAssetKey } from "../lib/cloudinary";
 import { APP_URL } from "../lib/app-url";
+import { STACK } from "./stack";
 import { useHeroParallax, useMediaQuery, useReveal } from "./hooks";
 import "./landing.css";
 
+// framer-motion (and the beam diagram) load after the first paint, so the
+// landing bundle stays small.
+const TechStackBeam = lazy(() => import("./TechStackBeam"));
+
 const REPO = "https://github.com/crty-dev/DYNAMIC";
-
-const STACK = [
-  { icon: Cloud, label: "Cloudflare Workers" },
-  { icon: Atom, label: "React" },
-  { icon: Braces, label: "TypeScript" },
-  { icon: Flame, label: "Hono" },
-  { icon: Database, label: "Cloudflare D1" },
-  { icon: Gauge, label: "web-vitals" },
-  { icon: Zap, label: "Vite" },
-  { icon: Scale, label: "MIT License" },
-];
-
-function StackList({ hidden = false }: { hidden?: boolean }) {
-  return (
-    <div className="stack__list" aria-hidden={hidden || undefined}>
-      {STACK.map(({ icon: Icon, label }) => (
-        <span className="stack__item" key={label}>
-          <Icon size={17} strokeWidth={2.1} aria-hidden />
-          {label}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 const delay = (ms: number) => ({ "--reveal-delay": `${ms}ms` }) as CSSProperties;
 
@@ -227,17 +198,25 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ----------------------------- tech strip --------------------------- */}
-        <section className="stack" aria-label="Built on open technology">
+        {/* ----------------------------- tech stack ---------------------------- */}
+        <section className="beam" aria-labelledby="beam-title">
           <div className="container">
-            <p className="stack__head" data-reveal>
-              Built on proven open technology — nothing proprietary in the stack
-            </p>
-          </div>
-          <div className="stack__row" data-reveal style={delay(80)}>
-            <div className="stack__track">
-              <StackList />
-              <StackList hidden />
+            <div className="section-head" data-reveal>
+              <span className="section-head__tag">The stack</span>
+              <h2 className="section-head__title" id="beam-title">
+                Built on proven open technology
+              </h2>
+              <p className="section-head__sub">Nothing proprietary in the stack.</p>
+              <ul className="sr-only">
+                {STACK.map((item) => (
+                  <li key={item.key}>{item.label}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="beam__canvas" data-reveal style={delay(80)}>
+              <Suspense fallback={<div className="beam__fallback" aria-hidden />}>
+                <TechStackBeam />
+              </Suspense>
             </div>
           </div>
         </section>
