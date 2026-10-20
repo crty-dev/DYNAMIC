@@ -17,8 +17,14 @@ import { sendMail } from "./mailer";
 
 type MailTarget = { user: { email: string; name?: string | null }; url: string };
 
-function buildOptions(env: Bindings): BetterAuthOptions {
-  const { appUrl, authBaseUrl, authSecret, turnstile } = config(env);
+/**
+ * Builds the Better Auth options for the given bindings.
+ *
+ * Exported so the tests can assert the security relevant options (IP header,
+ * joins, trusted origins) without starting a Worker.
+ */
+export function buildAuthOptions(env: Bindings): BetterAuthOptions {
+  const { appUrl, authBaseUrl, authSecret, turnstile, ipAddress } = config(env);
   const infraApiKey = env.BETTER_AUTH_API_KEY ?? "";
   const limitMax = Number(env.AUTH_RATE_LIMIT_MAX ?? 0) || null;
   const plugins: NonNullable<BetterAuthOptions["plugins"]> = turnstile.secretKey
@@ -91,7 +97,23 @@ function buildOptions(env: Bindings): BetterAuthOptions {
       cookiePrefix: "dynamic",
       useSecureCookies: true,
       crossSubDomainCookies: { enabled: false },
-      database: { generateId: () => crypto.randomUUID() },
+      ipAddress: {
+        // The client IP is read from a header the visitor cannot influence
+        // (`cf-connecting-ip` on Cloudflare). Without this the default
+        // `x-forwarded-for` is used, which Cloudflare appends to - a visitor
+        // that sends its own header would then be unresolvable and share one
+        // bucket with every other unresolvable request.
+        ipAddressHeaders: ipAddress.headers,
+        ...(ipAddress.trustedProxies.length > 0
+          ? { trustedProxies: ipAddress.trustedProxies }
+          : {}),
+      },
+      database: {
+        generateId: () => crypto.randomUUID(),
+        // The Kysely adapter (D1 dialect included) performs native joins, so
+        // /get-session and friends need one query instead of several.
+        joins: true,
+      },
     },
     trustedOrigins: [
       appUrl,
@@ -144,7 +166,7 @@ export function createAuth(env: Bindings): AuthInstance {
     );
   }
   if (cached && cached.key === authSecret) return cached.auth;
-  const auth = betterAuth(buildOptions(env));
+  const auth = betterAuth(buildAuthOptions(env));
   cached = { key: authSecret, auth };
   return auth;
 }

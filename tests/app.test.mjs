@@ -418,7 +418,13 @@ describe("DYNAMIC application API", () => {
 describe("production configuration", () => {
   it("declares the public variables the application needs", () => {
     const wrangler = fs.readFileSync(path.join(ROOT, "wrangler.jsonc"), "utf8");
-    for (const key of ["APP_URL", "MARKETING_URL", "MAX_SITES", "CLOUDINARY_CLOUD_NAME"]) {
+    for (const key of [
+      "APP_URL",
+      "MARKETING_URL",
+      "MAX_SITES",
+      "CLOUDINARY_CLOUD_NAME",
+      "AUTH_IP_HEADERS",
+    ]) {
       assert.ok(wrangler.includes(key), `wrangler.jsonc must declare ${key}`);
     }
   });

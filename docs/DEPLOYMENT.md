@@ -104,6 +104,7 @@ güvensiz bir oturum üretmez).
 | `MARKETING_URL` | `https://dynamic.crty-dev.com` |
 | `MAIL_FROM` | `DYNAMIC <no-reply@mail.crty-dev.com>` |
 | `MAX_SITES` | `500` (self-serve site sayısı sınırı) |
+| `AUTH_IP_HEADERS` | `cf-connecting-ip` (auth hız sınırı istemci IP'si) |
 
 ### 4) E-posta gönderimi (ücretsiz seçenekler)
 
@@ -138,6 +139,8 @@ Doğrulama Worker tarafında, DNS-over-HTTPS (Cloudflare 1.1.1.1) ile yapılır.
 | `MEDIA_UPLOAD_TOKEN` | **secret** | hayır | `POST /api/media/upload` ve `/signature` uçlarının bearer token'ı. |
 | `ADMIN_API_KEY` | **secret` | **evet** | `/api/admin/*` uçlarının bearer token'ı. Tanımlı değilse admin uçları `503` döner. |
 | `MAX_SITES` | `wrangler.jsonc` → `vars` | hayır | Self-serve site sayısı sınırı (varsayılan 500); public ingestion ucu ile geçici site açılamaz. |
+| `AUTH_IP_HEADERS` | `wrangler.jsonc` → `vars` | hayır | Kimlik doğrulama hız sınırının istemci IP'sini okuduğu başlık (varsayılan `cf-connecting-ip`). Nginx arkasında `x-real-ip` kullanın. |
+| `AUTH_TRUSTED_PROXIES` | `wrangler.jsonc` → `vars` | hayır | Güvenilen reverse proxy IP/CIDR listesi (virgülle). Yalnızca IP başlığı bir zincir taşıyorsa gerekir. |
 | `DATABASE_URL` | — | hayır | Kullanılmaz (D1 binding kullanılır). |
 
 İstemci (build) tarafı değişkenleri — Vite `VITE_` ile ön eki olmadan gömülür:
@@ -252,3 +255,44 @@ Worker içi sınırlar **isolate başına** çalışır (en iyi gayret). Kürese
 sınır istiyorsanız Cloudflare Dashboard → **Security → WAF → Rate limiting
 rules** bölümünden `https://<alan-adı>/api/collect` için bir kural ekleyin
 (Free planda sınırlı sayıda kural hakkınız vardır).
+
+### 10.1 Kimlik doğrulama (Better Auth) hız sınırı
+
+Better Auth'ın kendi hız sınırı da **isolate başına** bellekte tutulur
+(`rateLimit.storage: "memory"`); hard limit için WAF kuralı ya da
+`storage: "database"` gerekir (D1'de her istekte yazma → kota maliyeti).
+
+Kova anahtarı istemci IP'si + yol olduğu için **IP'nin doğru okunması**
+sınırın çalışması için şarttır:
+
+- Varsayılan başlık `x-forwarded-for`'dır ve **ziyaretçi tarafından
+  etkilenebilir** (Cloudflare bu başlığa kendi IP'sini *ekler*). Zincir
+  hâlinde bir `X-Forwarded-For` gönderen istek "güvenilmez" sayılır; IP
+  çözülemez ve tüm çözülemeyen istekler **tek bir ortak kovada** birleşir.
+- DYNAMIC bu yüzden `cf-connecting-ip` başlığını kullanır: Cloudflare bunu
+  edge'de gerçek ziyaretçi IP'si ile **üzerine yazar**, ziyaretçi
+  değiştiremez. Değer tek parçalı olduğu için Better Auth güvenilir kabul
+  eder (IPv6 adresleri varsayılan olarak /64 maskesiyle sayılır).
+- **Yedek başlık eklemeyin.** `ipAddressHeaders` içine `x-forwarded-for`
+  konulursa, ziyaretçi kendi başlığıyla her isteğe farklı bir IP yazarak
+  sınırı baypas edebilir.
+
+| Ortam | `AUTH_IP_HEADERS` |
+| --- | --- |
+| Cloudflare Workers (önerilen) | `cf-connecting-ip` |
+| Nginx (`proxy_set_header X-Real-IP $remote_addr;`) | `x-real-ip` |
+| Doğrudan bağlantı (proxy yok) | `x-forwarded-for` (tek parça olmalı) |
+
+Başlık bir **zincir** taşıyorsa (ör. `client, proxy1, proxy2`) ilk adres
+ziyaretçiye ait olduğu için güvenilmez. Bu durumda güvendiğiniz proxy'leri
+`AUTH_TRUSTED_PROXIES` ile bildirin; Better Auth zinciri sağdan sola yürür,
+güvenilen hop'ları atlar ve ilk güvenilmeyen adresi istemci IP'si olarak
+kullanır.
+
+### 10.2 Veritabanı birleştirmeleri (joins)
+
+`advanced.database.joins: true` açıktır: Better Auth ilişkili veriyi tek
+sorguda çeker (`/get-session` artık session + user + account için üç yerine
+bir sorgu yapar). D1'in SQLite lehçesi JOIN desteklediği için Drizzle/Prisma
+ilişki tanımları gerekmez — bunlar yalnızca o ORM'lerin kendi şemaları
+içindir.

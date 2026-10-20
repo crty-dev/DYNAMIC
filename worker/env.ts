@@ -37,6 +37,18 @@ export type Bindings = {
   PROJECT_VERIFY_INTERVAL_MS?: string;
   /** Raises the per-path auth rate limits (self-hosting, tests). */
   AUTH_RATE_LIMIT_MAX?: string;
+  /**
+   * Header the client IP is read from. Cloudflare overwrites `cf-connecting-ip`
+   * at the edge, so it is the only header a visitor cannot influence.
+   * Self-hosters behind nginx should use `x-real-ip`.
+   */
+  AUTH_IP_HEADERS?: string;
+  /**
+   * Trusted reverse proxies (IPs or CIDR ranges). Only needed when the client
+   * IP header carries a forwarded chain: Better Auth then walks the chain from
+   * the right and takes the first address that is not a trusted hop.
+   */
+  AUTH_TRUSTED_PROXIES?: string;
   /** Maximum number of self-serve analytics sites. */
   MAX_SITES?: string;
   /** Cloudinary credential — "cloudinary://<key>:<secret>@<cloud>". Secret: wrangler secret put. */
@@ -70,6 +82,15 @@ export type Variables = {
 
 export type AppEnv = { Bindings: Bindings; Variables: Variables };
 
+/** Splits a comma separated list into trimmed, non empty entries. */
+function list(value: string | undefined, fallback: string[]): string[] {
+  const entries = (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return entries.length > 0 ? entries : fallback;
+}
+
 /** Resolved runtime configuration with safe defaults. */
 export function config(env: Bindings) {
   const appUrl = (env.APP_URL ?? "https://app.dynamic.crty-dev.com").replace(/\/+$/, "");
@@ -89,6 +110,15 @@ export function config(env: Bindings) {
       from: env.MAIL_FROM ?? "DYNAMIC <no-reply@crty-dev.com>",
       providerUrl: env.MAIL_PROVIDER_URL ?? null,
       providerToken: env.MAIL_PROVIDER_TOKEN ?? null,
+    },
+    ipAddress: {
+      // Cloudflare replaces `cf-connecting-ip` with the real visitor address.
+      // The Better Auth default (`x-forwarded-for`) is appended to by
+      // Cloudflare, so a visitor that sends its own header turns it into a
+      // chain that Better Auth refuses to trust - the request would end up in
+      // one shared bucket instead of its own.
+      headers: list(env.AUTH_IP_HEADERS, ["cf-connecting-ip"]),
+      trustedProxies: list(env.AUTH_TRUSTED_PROXIES, []),
     },
     authSecret: env.BETTER_AUTH_SECRET ?? null,
   };

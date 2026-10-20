@@ -57,3 +57,14 @@ MAIL_FROM=DYNAMIC <no-reply@mail.crty-dev.com>
 
 # Minimum seconds between two DNS verification attempts (default 10)
 # PROJECT_VERIFY_INTERVAL_MS=10000
+
+# --- Rate limiting / client IP ---
+# Header the client IP is read from. Cloudflare overwrites `cf-connecting-ip`
+# at the edge, so it cannot be spoofed by the visitor. Behind nginx use
+# `x-real-ip` instead, otherwise every request lands in one shared bucket.
+AUTH_IP_HEADERS=cf-connecting-ip
+
+# Trusted reverse proxies (IPs or CIDR ranges). Only needed when the header
+# carries a forwarded chain - Better Auth then walks the chain from the right
+# and uses the first address that is not a trusted hop.
+# AUTH_TRUSTED_PROXIES=192.0.2.10,10.0.0.0/24

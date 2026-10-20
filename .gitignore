@@ -25,6 +25,7 @@ public/js/
 
 # Local secret files
 dynamic-publish-token.txt
+github_push_commad.txt
 
 # Legacy Flatlogic "react-dashboard" reference (CRA + Express + Sequelize).
 # Its layout is re-implemented in src/console/ on the Vite/Workers stack,
