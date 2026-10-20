@@ -9,7 +9,7 @@
   --line: rgba(32, 169, 222, 0.2);
   --line-soft: rgba(32, 169, 222, 0.11);
   --line-strong: rgba(35, 216, 202, 0.44);
-  --blue: #1d70fd;
+  --blue: #1963ea;
   --cyan: #20a9de;
   --teal: #23d8ca;
   --danger: #ff8f8f;
@@ -219,6 +219,12 @@ select {
   max-width: 1080px;
 }
 
+/* The public pages centre themselves, so the layout adds no padding. */
+.app__content--plain {
+  padding: 0;
+  max-width: none;
+}
+
 .app__toggle {
   display: none;
 }
@@ -322,7 +328,7 @@ select {
 }
 
 .button:hover:not(:disabled) {
-  background: #2f7fff;
+  background: #1c6bf2;
   transform: translateY(-1px);
 }
 

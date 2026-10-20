@@ -135,17 +135,23 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
+/** The public pages (login, register, ...) have no sidebar but still need a
+ *  main landmark, so the document keeps exactly one. */
+function PublicLayout({ children }: { children: React.ReactNode }) {
+  return <main className="app__content app__content--plain">{children}</main>;
+}
+
 export default function App() {
   const location = useLocation();
   const isPublic = PUBLIC_PATHS.some((path) => location.pathname.startsWith(path));
 
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
+      <Route path="/register" element={<PublicLayout><Register /></PublicLayout>} />
+      <Route path="/verify-email" element={<PublicLayout><VerifyEmail /></PublicLayout>} />
+      <Route path="/forgot-password" element={<PublicLayout><ForgotPassword /></PublicLayout>} />
+      <Route path="/reset-password" element={<PublicLayout><ResetPassword /></PublicLayout>} />
       <Route
         path="/"
         element={

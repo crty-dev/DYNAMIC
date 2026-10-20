@@ -1,7 +1,9 @@
 /* ==========================================================================
    DYNAMIC — landing page
    Flat, high-contrast surfaces. No glow, blur or animated gradients.
-   Palette: #0b1d2f ink · #1d70fd blue · #20a9de cyan · #23d8ca teal
+   Palette: #0b1d2f ink · #1963ea blue · #20a9de cyan · #23d8ca teal
+   The blue is a shade darker than the brand blue so that white text on it
+   clears the 4.5:1 contrast ratio (WCAG AA).
    Type: Montserrat (display/UI) + JetBrains Mono (code), SIL OFL.
    ========================================================================== */
 
@@ -18,8 +20,8 @@
   --line: rgba(32, 169, 222, 0.2);
   --line-soft: rgba(32, 169, 222, 0.11);
   --line-strong: rgba(35, 216, 202, 0.44);
-  --blue: #1d70fd;
-  --blue-2: #1e87f1;
+  --blue: #1963ea;
+  --blue-2: #1c6bf2;
   --blue-3: #1f97e8;
   --cyan: #20a9de;
   --cyan-2: #22bad6;
