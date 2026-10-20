@@ -23,7 +23,9 @@ import consoleIconPng from "../../images/DYNAMIC_Console-removebg-preview.png";
 import GithubMark from "./GithubMark";
 import DashMock from "./DashMock";
 import TypewriterCode from "./TypewriterCode";
-import { useHeroParallax, useReveal } from "./hooks";
+import HalftoneWordmarkFooter from "../components/ui/halftone-wordmark-footer";
+import DataRain from "../components/ui/data-rain";
+import { useHeroParallax, useMediaQuery, useReveal } from "./hooks";
 import "./landing.css";
 
 const REPO = "https://github.com/crty-dev/DYNAMIC";
@@ -53,6 +55,34 @@ function StackList({ hidden = false }: { hidden?: boolean }) {
 }
 
 const delay = (ms: number) => ({ "--reveal-delay": `${ms}ms` }) as CSSProperties;
+
+const FOOTER_COLUMNS = [
+  {
+    title: "Contact",
+    links: [
+      { label: "info@crty-dev.com", href: "mailto:info@crty-dev.com" },
+      { label: "Open an issue", href: "https://github.com/crty-dev/DYNAMIC/issues" },
+    ],
+  },
+  {
+    title: "Project",
+    links: [
+      { label: "GitHub", href: "https://github.com/crty-dev/DYNAMIC" },
+      { label: "Releases", href: "https://github.com/crty-dev/DYNAMIC/releases" },
+      { label: "Roadmap", href: "https://github.com/crty-dev/DYNAMIC/blob/main/docs/ROADMAP.md" },
+      { label: "License (MIT)", href: "https://github.com/crty-dev/DYNAMIC/blob/main/LICENSE" },
+    ],
+  },
+  {
+    title: "Products",
+    links: [
+      { label: "Analytics", href: "#features" },
+      { label: "RUM", href: "#rum" },
+      { label: "SDK", href: "#sdk" },
+      { label: "Console", href: "/dashboard" },
+    ],
+  },
+];
 
 function BrandMark({ className, eager = false }: { className: string; eager?: boolean }) {
   return (
@@ -90,6 +120,7 @@ function ProductIcon({
 export default function LandingPage() {
   const [open, setOpen] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
+  const compact = useMediaQuery("(max-width: 768px)");
   useReveal();
   useHeroParallax(heroRef);
   const close = () => setOpen(false);
@@ -307,61 +338,52 @@ export default function LandingPage() {
             </section>
           </div>
         </section>
+
+        {/* -------------------------------- signal ----------------------------- */}
+        <section className="signal" aria-labelledby="signal-title">
+          <DataRain fullscreen={false} />
+          <div className="container signal__inner">
+            <div className="signal__panel" data-reveal>
+              <p className="signal__tag">The signal</p>
+              <h2 className="signal__title" id="signal-title">
+                Every event, in flight.
+              </h2>
+              <p className="signal__text">
+                The SDK batches pageviews, Web Vitals and custom events. The Worker validates
+                every payload, drops anything personal and writes the rest to D1 at the edge — no
+                cookies, no sampling, no third parties.
+              </p>
+              <div className="signal__actions">
+                <a className="signal__link" href={`${REPO}#collect-api`} target="_blank" rel="noreferrer">
+                  Read the API <ArrowRight size={15} strokeWidth={2.2} aria-hidden />
+                </a>
+                <a className="signal__link" href="/dashboard">
+                  Open the console <ArrowRight size={15} strokeWidth={2.2} aria-hidden />
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* -------------------------------- footer ---------------------------- */}
-      <footer className="footer">
-        <div className="container">
-          <div className="footer__top">
-            <div className="footer__col">
-              <div className="footer__group">
-                <h3>Contact</h3>
-                <ul className="footer__list">
-                  <li><a href="mailto:info@crty-dev.com">info@crty-dev.com</a></li>
-                  <li><a href={`${REPO}/issues`} target="_blank" rel="noreferrer">Open an issue</a></li>
-                </ul>
-              </div>
-              <div className="footer__group">
-                <h3>Project</h3>
-                <ul className="footer__list">
-                  <li><a href={REPO} target="_blank" rel="noreferrer">GitHub</a></li>
-                  <li><a href={`${REPO}/releases`} target="_blank" rel="noreferrer">Releases</a></li>
-                  <li><a href={`${REPO}/blob/main/docs/ROADMAP.md`} target="_blank" rel="noreferrer">Roadmap</a></li>
-                  <li><a href={`${REPO}/blob/main/LICENSE`} target="_blank" rel="noreferrer">License (MIT)</a></li>
-                </ul>
-              </div>
-            </div>
-            <div className="footer__col">
-              <div className="footer__group">
-                <h3>Products</h3>
-                <ul className="footer__list">
-                  <li><a href="#features">DYNAMIC Analytics</a></li>
-                  <li><a href="#rum">DYNAMIC RUM</a></li>
-                  <li><a href="#sdk">DYNAMIC SDK</a></li>
-                  <li><a href="/dashboard">DYNAMIC Console</a></li>
-                </ul>
-              </div>
-              <div className="footer__group">
-                <h3>Connect</h3>
-                <ul className="footer__list">
-                  <li><a href={REPO} target="_blank" rel="noreferrer">GitHub</a></li>
-                  <li><a href="mailto:info@crty-dev.com">Email</a></li>
-                </ul>
-              </div>
-            </div>
-          </div>
-          <div className="footer__bottom">
-            <span>© 2026 DYNAMIC. All rights reserved.</span>
-            <span className="footer__badge">
-              <Cloud size={14} aria-hidden /> Built on Cloudflare Workers · MIT
-            </span>
-            <a className="footer__brand" href="/" aria-label="DYNAMIC — home">
-              <BrandMark className="footer__brand-mark" />
-              <span>DYNAMIC</span>
-            </a>
-          </div>
-        </div>
-      </footer>
+      <HalftoneWordmarkFooter
+        className="footer-halftone"
+        wordmark="dynamic"
+        label="DYNAMIC"
+        meta="©2026 · Open source under MIT · Built on Cloudflare Workers"
+        columns={FOOTER_COLUMNS}
+        preset="night"
+        palette={{ background: "#081827", ink: "#f2f8ff", warm: "#23d8ca" }}
+        dotGap={6}
+        radius={90}
+        crop={0.18}
+        grain={0.32}
+        fontFamily='"Montserrat", "Helvetica Neue", Arial, sans-serif'
+        fontWeight={700}
+        monoFamily='"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace'
+        height={compact ? "340px" : "480px"}
+      />
     </div>
   );
 }

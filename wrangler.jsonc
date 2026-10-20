@@ -17,6 +17,13 @@
       "database_id": "68aa5ed0-6795-4ac1-9b1d-48df817a5deb"
     }
   ],
+  // Public Cloudinary values. The API secret lives in a Worker secret:
+  //   npx wrangler secret put CLOUDINARY_URL
+  //   npx wrangler secret put MEDIA_UPLOAD_TOKEN
+  "vars": {
+    "CLOUDINARY_CLOUD_NAME": "di9c12gg6",
+    "CLOUDINARY_UPLOAD_KEY": "657115753521274"
+  },
   "observability": {
     "enabled": true
   }

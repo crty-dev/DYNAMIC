@@ -6,6 +6,14 @@ type Bindings = {
   DB: D1Database;
   /** Static assets binding (dist/) */
   ASSETS: Fetcher;
+  /** Cloudinary credential — "cloudinary://<key>:<secret>@<cloud>". Secret: wrangler secret put. */
+  CLOUDINARY_URL?: string;
+  /** Public cloud name (also in wrangler vars). */
+  CLOUDINARY_CLOUD_NAME?: string;
+  /** Public upload API key. */
+  CLOUDINARY_UPLOAD_KEY?: string;
+  /** Bearer token that guards the media upload/signature endpoints. */
+  MEDIA_UPLOAD_TOKEN?: string;
 };
 
 type Variables = {
@@ -448,6 +456,198 @@ app.post("/api/collect", async (c) => {
   } catch (error) {
     console.error("collect_failed", error);
     return c.json({ error: "storage_error" }, 500);
+  }
+});
+
+/* ==========================================================================
+   Media — Cloudinary delivery + guarded uploads
+   ========================================================================== */
+
+const MAX_MEDIA_BYTES = 10 * 1024 * 1024; // Cloudinary free plan: 10 MB per image
+const MEDIA_FOLDER = "dynamic/uploads";
+
+type CloudinaryCreds = { cloudName: string; apiKey: string; apiSecret: string };
+
+/** Parses "cloudinary://<key>:<secret>@<cloud>". Placeholder values are rejected. */
+function parseCloudinaryUrl(value: string | undefined): CloudinaryCreds | null {
+  if (!value) return null;
+  const m = /^cloudinary:\/\/([^:]+):([^@]+)@(.+)$/.exec(value.trim());
+  if (!m) return null;
+  const apiKey = decodeURIComponent(m[1]);
+  const apiSecret = decodeURIComponent(m[2]);
+  // "<API_SECRET>" style placeholders are not credentials.
+  if (!apiKey || !apiSecret || /[<>]/.test(apiKey) || /[<>]/.test(apiSecret)) return null;
+  return { apiKey, apiSecret, cloudName: m[3] };
+}
+
+async function sha1Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** Constant-time-ish comparison for the admin upload token. */
+function tokenMatches(expected: string | undefined, given: string): boolean {
+  if (!expected || expected.length < 16) return false;
+  if (given.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ given.charCodeAt(i);
+  return diff === 0;
+}
+
+function bearerToken(header: string | undefined): string {
+  if (!header) return "";
+  const m = /^Bearer\s+(.+)$/i.exec(header.trim());
+  return m ? m[1].trim() : "";
+}
+
+/** Reads a binary body with a hard size cap. */
+async function readBinary(
+  request: Request,
+  maxBytes: number,
+): Promise<{ ok: true; bytes: Uint8Array } | { ok: false; error: "too_large" | "empty" }> {
+  if (!request.body) return { ok: false, error: "empty" };
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {});
+        return { ok: false, error: "too_large" };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, error: "empty" };
+  }
+  if (total === 0) return { ok: false, error: "empty" };
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, bytes };
+}
+
+/**
+ * GET /api/media/config — public delivery configuration.
+ * The API secret is never exposed; only the cloud name and upload key are.
+ */
+app.get("/api/media/config", (c) => {
+  const creds = parseCloudinaryUrl(c.env.CLOUDINARY_URL);
+  const cloudName = c.env.CLOUDINARY_CLOUD_NAME ?? creds?.cloudName ?? null;
+  return c.json({
+    enabled: Boolean(creds),
+    cloudName,
+    uploadKey: c.env.CLOUDINARY_UPLOAD_KEY ?? creds?.apiKey ?? null,
+    deliveryBase: cloudName ? `https://res.cloudinary.com/${cloudName}/image/upload` : null,
+    folder: MEDIA_FOLDER,
+  });
+});
+
+/**
+ * POST /api/media/signature — signed parameters for a direct browser upload.
+ * Requires: Authorization: Bearer <MEDIA_UPLOAD_TOKEN>.
+ */
+app.post("/api/media/signature", async (c) => {
+  if (!c.env.MEDIA_UPLOAD_TOKEN) return c.json({ error: "media_not_configured" }, 503);
+  if (!tokenMatches(c.env.MEDIA_UPLOAD_TOKEN, bearerToken(c.req.header("authorization")))) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const creds = parseCloudinaryUrl(c.env.CLOUDINARY_URL);
+  if (!creds) return c.json({ error: "media_not_configured" }, 503);
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = await sha1Hex(`folder=${MEDIA_FOLDER}&timestamp=${timestamp}${creds.apiSecret}`);
+  return c.json({
+    cloudName: creds.cloudName,
+    apiKey: creds.apiKey,
+    timestamp,
+    folder: MEDIA_FOLDER,
+    signature,
+  });
+});
+
+/**
+ * POST /api/media/upload — server-side proxy upload.
+ * Requires: Authorization: Bearer <MEDIA_UPLOAD_TOKEN>. Body: raw image bytes.
+ */
+app.post("/api/media/upload", async (c) => {
+  if (!c.env.MEDIA_UPLOAD_TOKEN) return c.json({ error: "media_not_configured" }, 503);
+  if (!tokenMatches(c.env.MEDIA_UPLOAD_TOKEN, bearerToken(c.req.header("authorization")))) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const creds = parseCloudinaryUrl(c.env.CLOUDINARY_URL);
+  if (!creds) return c.json({ error: "media_not_configured" }, 503);
+
+  const declared = Number(c.req.header("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > MAX_MEDIA_BYTES) {
+    return c.json({ error: "payload_too_large", max: MAX_MEDIA_BYTES }, 413);
+  }
+
+  const contentType = (c.req.header("content-type") ?? "").split(";")[0].trim();
+  if (contentType && !contentType.startsWith("image/")) {
+    return c.json({ error: "unsupported_media_type" }, 415);
+  }
+
+  const body = await readBinary(c.req.raw, MAX_MEDIA_BYTES);
+  if (!body.ok) {
+    if (body.error === "too_large") {
+      return c.json({ error: "payload_too_large", max: MAX_MEDIA_BYTES }, 413);
+    }
+    return c.json({ error: "empty_body" }, 400);
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = await sha1Hex(`folder=${MEDIA_FOLDER}&timestamp=${timestamp}${creds.apiSecret}`);
+
+  const form = new FormData();
+  form.append("file", new Blob([body.bytes], { type: contentType || "image/png" }), "upload");
+  form.append("api_key", creds.apiKey);
+  form.append("timestamp", String(timestamp));
+  form.append("folder", MEDIA_FOLDER);
+  form.append("signature", signature);
+
+  try {
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${creds.cloudName}/image/upload`,
+      { method: "POST", body: form },
+    );
+    const payload = (await response.json()) as {
+      public_id?: string;
+      secure_url?: string;
+      width?: number;
+      height?: number;
+      format?: string;
+      bytes?: number;
+      error?: { message?: string };
+    };
+    if (!response.ok || !payload.secure_url) {
+      console.error("cloudinary_upload_failed", response.status, payload.error?.message);
+      return c.json({ error: "upload_failed" }, 502);
+    }
+    return c.json(
+      {
+        ok: true,
+        publicId: payload.public_id ?? null,
+        url: payload.secure_url,
+        width: payload.width ?? null,
+        height: payload.height ?? null,
+        format: payload.format ?? null,
+        bytes: payload.bytes ?? null,
+      },
+      201,
+    );
+  } catch (error) {
+    console.error("cloudinary_upload_error", error);
+    return c.json({ error: "upload_failed" }, 502);
   }
 });
 

@@ -48,6 +48,99 @@
 /* Tüm uygulama koyu temadır; html.dark zaten index.html'de sabit. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ==========================================================================
+   Data Rain — akış alanı parçacıkları. Palet DYNAMIC renklerinden gelir;
+   --dr-* değişkenleri component'in canvas'ı okur.
+   ========================================================================== */
+:root {
+  --dr-bg-0: #081827;
+  --dr-bg-1: #0b1d2f;
+  --dr-bg-2: #12304f;
+  --dr-calm: #23d8ca;
+  --dr-mid: #20a9de;
+  --dr-hot: #1d70fd;
+  --dr-core: #eaf4ff;
+  --dr-vignette: 0.55;
+  --dr-grain: 0.045;
+  --dr-bloom-blur: 8px;
+  --dr-bloom-opacity: 0.5;
+}
+
+@keyframes dr-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.dr-root {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--dr-bg-0);
+}
+
+.dr-root--contained {
+  position: relative;
+  inset: auto;
+  height: 420px;
+}
+
+.dr-main,
+.dr-bloom {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+
+.dr-main {
+  z-index: 1;
+}
+
+.dr-bloom {
+  z-index: 2;
+  pointer-events: none;
+  opacity: var(--dr-bloom-opacity);
+  filter: blur(var(--dr-bloom-blur));
+  mix-blend-mode: screen;
+}
+
+.dr-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 92% at 50% 42%,
+    transparent 36%,
+    rgba(8, 24, 39, var(--dr-vignette)) 100%
+  );
+}
+
+.dr-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: var(--dr-grain);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dr-root {
+    animation: none;
+  }
+}
+
 @layer base {
   html {
     color-scheme: dark;

@@ -185,13 +185,23 @@ değişiklik yapılacaksa `scripts/brand/build.mjs` güncellenip komut yeniden
 Landing sayfası, `images/` altındaki yüksek çözünürlüklü şeffaf marka
 görsellerini doğrudan içe aktarır (`src/landing/LandingPage.tsx`). Her görsel
 `<picture>` ile yüklenir: birincil kaynak `.webp`, geri dönüş `.png`. DYNAMIC
-sembolü navigasyon ve footer'da metin wordmark'ıyla birlikte, Analytics / RUM /
-SDK ürün ikonları kartlarda kullanılır. Hero'daki Console görünümü
+sembolü navigasyonda metin wordmark'ıyla birlikte, Analytics / RUM / SDK /
+Console ürün ikonları ise kartlarda kullanılır. Hero'daki Console görünümü
 (`DashMock.tsx`) raster bir ekran görüntüsü değil, marka renkleriyle canlı
 HTML/SVG olarak üretilir. Favicon, Apple touch icon, manifest ve Open Graph
 görseli `index.html` üzerinden `public/` dosyalarına bağlanır; favicon
 `images/favicon.ico` kaynağından 16/32/48 px PNG ve optimize ICO olarak
 türetilmiştir.
+
+Footer artık halftone wordmark bileşenidir
+(`src/components/ui/halftone-wordmark-footer.tsx`): `dynamic` kelimesi devasa
+olarak alt kenardan kırpılır ve nokta baskı (halftone) olarak basılır. Fare
+noktaları itip ısıtır, tıklama şok halkası başlatır. Link sütunları, marka
+satırı ve "back to top" kelimenin üstünde durur.
+
+`src/components/ui/data-rain.tsx` ise akış alanı (flow field) parçacık
+motorudur; "The signal" bandında metnin arkasında çalışır ve renklerini
+`--dr-calm / --dr-mid / --dr-hot` değişkenlerinden (DYNAMIC paleti) alır.
 
 ### Animasyon
 
@@ -199,7 +209,45 @@ Hero grafiğinin çizilmesi ve fareyle gezilebilen tooltip, dashboard parallax'�
 scroll reveal, sonsuz teknoloji şeridi, kart hover'ları, kod typewriter'ı ve CTA
 reveal'ı CSS + React + IntersectionObserver ile yapılır. Framer Motion, GSAP
 veya benzeri bir animasyon runtime'ı eklenmedi; bu, paket boyutunu ve Free plan
-CPU bütçesini korur. Tüm hareketler `prefers-reduced-motion` ile durur.
+CPU bütçesini korur. Ağır görsel efektler (halftone footer, data rain) kendi
+2D canvas'larını çizer ve `prefers-reduced-motion` ile durur.
+
+## Cloudinary (medya)
+
+Cloudinary hesabı: cloud `di9c12gg6`, upload key `657115753521274`. API secret
+**depoya girmez**; `.dev.vars` (git-ignored) ve Worker secret store'unda tutulur.
+
+```bash
+# 1) .dev.vars içine gerçek secret'ı yazın
+#    CLOUDINARY_URL=cloudinary://657115753521274:<API_SECRET>@di9c12gg6
+cp .dev.vars.example .dev.vars
+
+# 2) hesabı doğrula + unsigned upload preset'ini oluştur
+npm run cloudinary:setup
+
+# 3) marka görsellerini Cloudinary'ye yükle (isteğe bağlı)
+npm run cloudinary:upload
+```
+
+Üretimde secret'lar Worker'a yazılır:
+
+```bash
+npx wrangler secret put CLOUDINARY_URL
+npx wrangler secret put MEDIA_UPLOAD_TOKEN
+```
+
+`MEDIA_UPLOAD_TOKEN` rastgele bir bearer token'dır ve yükleme uçlarını korur
+(`node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"`).
+
+| Uç | Yetki | Açıklama |
+| --- | --- | --- |
+| `GET /api/media/config` | herkese açık | Cloud adı, upload key, teslim tabanı. Secret asla dönmez. |
+| `POST /api/media/signature` | `Authorization: Bearer <MEDIA_UPLOAD_TOKEN>` | İmzalı yükleme parametreleri (doğrudan tarayıcı yüklemesi). |
+| `POST /api/media/upload` | `Authorization: Bearer <MEDIA_UPLOAD_TOKEN>` | Sunucu üzerinden proxy yükleme; gövde 10 MB sınırında, yalnızca `image/*`. |
+
+İstemci yardımcıları `src/lib/cloudinary.ts` içindedir
+(`cloudinaryUrl()`, `fetchMediaConfig()`, `requestUploadSignature()`).
+Klasörler: `dynamic/brand`, `dynamic/uploads`, `dynamic/social`.
 
 **Not:** `.opencode/` klasörü yerel MCP yapılandırması içerdiğinden (canlı
 API anahtarları) repoya girmemesi için `.gitignore` kurallarına dahildir.
