@@ -470,6 +470,208 @@ select {
   letter-spacing: -0.03em;
 }
 
+.kpi small {
+  display: block;
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------- dashboard blocks */
+
+/* A ranked list with a share bar. */
+.bars {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bars__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+}
+
+.bars__label {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bars__value {
+  flex: none;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.bars__value em {
+  margin-left: 8px;
+  color: var(--faint);
+  font-style: normal;
+}
+
+.bars__hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.bars__track {
+  height: 4px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: rgba(32, 169, 222, 0.12);
+  overflow: hidden;
+}
+
+.bars__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--blue);
+}
+
+.bars li:nth-child(2n) .bars__fill {
+  background: var(--teal);
+}
+
+/* The Web Vitals cards. */
+.vitals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.vital {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--ink-deep);
+}
+
+.vital__name {
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.vital__value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.vital__value--none {
+  color: var(--faint);
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.vital__meta {
+  color: var(--faint);
+  font-size: 11.5px;
+}
+
+.vital[data-state="good"] .vital__value {
+  color: #4ade80;
+}
+
+.vital[data-state="fair"] .vital__value {
+  color: #fbbf24;
+}
+
+.vital[data-state="poor"] .vital__value {
+  color: #f87171;
+}
+
+/* The realtime block. */
+.realtime {
+  display: flex;
+  gap: 28px;
+}
+
+.realtime b {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.realtime span {
+  color: var(--faint);
+  font-size: 12.5px;
+}
+
+.chart {
+  height: 260px;
+  width: 100%;
+}
+
+.list--tight {
+  gap: 8px;
+}
+
+.goal-form {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--ink-deep);
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.icon-button:hover:not(:disabled) {
+  border-color: rgba(255, 143, 143, 0.5);
+  color: #ffb4b4;
+}
+
+.icon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.alert--warn {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.08);
+  color: #ffe08a;
+}
+
+@media (max-width: 900px) {
+  .grid-2,
+  .grid-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .code {
   margin: 0;
   padding: 14px;

@@ -5,7 +5,14 @@ import { analyticsSummary, resolveRange, rumSummary } from "./analytics";
 import { lookupTxt, normalizeHostname, verificationRecord } from "./dns";
 import { config, type AppEnv } from "./env";
 import { rateLimit } from "./rate-limit";
-import { siteByOrigin } from "./sites";
+import { siteByKey, siteByOrigin } from "./sites";
+import { goalsFor } from "./goals";
+
+/** A goal path: the path only, without the query string. */
+function cleanGoalPath(value: string): string {
+  const path = value.split("?")[0].split("#")[0].trim();
+  return path.slice(0, 512) || "/";
+}
 
 /* ==========================================================================
    Website projects
@@ -217,6 +224,95 @@ export function createProjectsApp(): Hono<AppEnv> {
     await c.env.DB.prepare("UPDATE projects SET name = ?, updated_at = ? WHERE id = ? AND user_id = ?")
       .bind(parsed.data.name.trim(), Date.now(), found.project.id, found.user.id)
       .run();
+    return c.json({ ok: true });
+  });
+
+  /* ---------------------------------------------------------------- goals */
+
+  /**
+   * The goals of a project. A goal is a named conversion: it matches an
+   * event by its name (or a path for a page goal) and the ingest writes the
+   * goal into the event row.
+   */
+  app.get("/:id/goals", async (c) => {
+    const found = await ownedProject(c, c.req.param("id"));
+    if ("error" in found) {
+      return c.json(
+        { error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
+        found.error === "unauthorized" ? 401 : 404,
+      );
+    }
+    const site = await siteByKey(c.env.DB, found.project.public_id);
+    if (!site) return c.json({ ok: true, goals: [] });
+    return c.json({ ok: true, goals: await goalsFor(c.env.DB, site.id) });
+  });
+
+  const goalSchema = z.object({
+    name: z
+      .string()
+      .min(1)
+      .max(80)
+      .regex(/^[A-Za-z0-9_.:-]+$/, "Sadece harf, rakam, _, ., : ve - kullanın"),
+    label: z.string().max(120).optional(),
+    path: z.string().max(512).optional(),
+    value: z.number().nonnegative().max(1_000_000_000).optional(),
+  });
+
+  app.post("/:id/goals", async (c) => {
+    const found = await ownedProject(c, c.req.param("id"));
+    if ("error" in found) {
+      return c.json(
+        { error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
+        found.error === "unauthorized" ? 401 : 404,
+      );
+    }
+    const body = await c.req.json().catch(() => null);
+    const parsed = goalSchema.safeParse(body);
+    if (!parsed.success) return c.json({ error: "invalid_payload" }, 400);
+
+    const site = await siteByKey(c.env.DB, found.project.public_id);
+    if (!site) return c.json({ error: "site_not_found" }, 404);
+
+    // A site may not collect an unbounded number of goals: the ingest would
+    // have to compare every event against all of them.
+    const existing = await goalsFor(c.env.DB, site.id);
+    if (existing.length >= 25) {
+      return c.json({ error: "too_many_goals", limit: 25 }, 429);
+    }
+
+    const publicId = `goal_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+    await c.env.DB.prepare(
+      "INSERT INTO goals (site_id, public_id, name, label, path, value, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+      .bind(
+        site.id,
+        publicId,
+        parsed.data.name,
+        parsed.data.label ?? null,
+        parsed.data.path ? cleanGoalPath(parsed.data.path) : null,
+        parsed.data.value ?? null,
+        Date.now(),
+      )
+      .run();
+    return c.json({ ok: true, goal: publicId }, 201);
+  });
+
+  app.delete("/:id/goals/:goal", async (c) => {
+    const found = await ownedProject(c, c.req.param("id"));
+    if ("error" in found) {
+      return c.json(
+        { error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
+        found.error === "unauthorized" ? 401 : 404,
+      );
+    }
+    const site = await siteByKey(c.env.DB, found.project.public_id);
+    if (!site) return c.json({ error: "not_found" }, 404);
+    const result = await c.env.DB.prepare(
+      "DELETE FROM goals WHERE public_id = ? AND site_id = ?",
+    )
+      .bind(c.req.param("goal"), site.id)
+      .run();
+    if (!result.meta.changes) return c.json({ error: "not_found" }, 404);
     return c.json({ ok: true });
   });
 

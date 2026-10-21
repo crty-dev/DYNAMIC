@@ -42,6 +42,20 @@ export type ProjectStats = {
     topPages: { path: string; n: number }[];
     referrers: { referrer: string; n: number }[];
     countries: { country: string; n: number }[];
+    devices: { device: string; browser: string; os: string; n: number }[];
+    campaigns: {
+      source: string | null;
+      medium: string | null;
+      campaign: string | null;
+      n: number;
+    }[];
+    goals: { name: string; n: number; value: number }[];
+    customEvents: { name: string; n: number }[];
+    realtime: {
+      events: number;
+      activeSessions: number;
+      topPages: { path: string; n: number }[];
+    };
   } | null;
   rum: {
     metrics: {
@@ -54,6 +68,16 @@ export type ProjectStats = {
       note?: string;
     }[];
   } | null;
+};
+
+/** A named conversion of a site. */
+export type Goal = {
+  id: number;
+  public_id: string;
+  name: string;
+  label: string | null;
+  path: string | null;
+  value: number | null;
 };
 
 export class ApiError extends Error {
@@ -119,6 +143,20 @@ export const projectsApi = {
     ),
   stats: (id: string, range: string) =>
     request<ProjectStats>(`/api/projects/${id}/stats?range=${range}`),
+  goals: (id: string) => request<{ ok: boolean; goals: Goal[] }>(`/api/projects/${id}/goals`),
+  createGoal: (
+    id: string,
+    goal: { name: string; label?: string; path?: string },
+  ) =>
+    request<{ ok: boolean; goal: string }>(`/api/projects/${id}/goals`, {
+      method: "POST",
+      body: JSON.stringify(goal),
+    }),
+  deleteGoal: (id: string, goal: string) =>
+    request<{ ok: boolean }>(
+      `/api/projects/${id}/goals/${encodeURIComponent(goal)}`,
+      { method: "DELETE" },
+    ),
 };
 
 /* ------------------------------------------------------------- formatters */

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense, lazy } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { ArrowRight, Check, LogOut, Mail, RefreshCw, Trash2, User } from "lucide-react";
 import {
@@ -6,9 +6,8 @@ import {
   consoleUrl,
   authClient,
   fetchMailStatus,
-  fmtInt,
-  fmtMetric,
   projectsApi,
+  type Goal,
   type Project,
   type ProjectStats,
 } from "./api";
@@ -20,7 +19,12 @@ import {
   TextField,
   useSocialProviders,
 } from "./auth-shell";
+import { Breakdown, KpiCards, Realtime, WebVitals } from "./console/blocks";
+import { GoalPanel } from "./console/goal-panel";
 import { PRIVACY_URL } from "../lib/app-url";
+
+// The chart pulls in the whole charting runtime, so it loads on its own.
+const TrafficChart = lazy(() => import("./console/traffic-chart"));
 
 /* ------------------------------------------------------------------ shared */
 
@@ -862,6 +866,7 @@ export function SiteOverview() {
   const { id = "" } = useParams();
   const [project, setProject] = useState<Project | null>(null);
   const [stats, setStats] = useState<ProjectStats | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState("7d");
 
@@ -872,15 +877,31 @@ export function SiteOverview() {
       .catch((loadError) => setError(errorMessage(loadError)));
   }, [id]);
 
-  useEffect(() => {
+  const loadStats = useCallback(() => {
     projectsApi
       .stats(id, range)
       .then(setStats)
       .catch((loadError) => setError(errorMessage(loadError)));
   }, [id, range]);
 
-  const totals = stats?.summary?.totals;
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  const loadGoals = useCallback(() => {
+    projectsApi
+      .goals(id)
+      .then((result) => setGoals(result.goals))
+      .catch(() => undefined);
+  }, [id]);
+
+  useEffect(() => {
+    loadGoals();
+  }, [loadGoals]);
+
+  const summary = stats?.summary ?? null;
   const metrics = stats?.rum?.metrics ?? [];
+  const unverified = project && project.status !== "verified";
 
   return (
     <div className="stack">
@@ -905,82 +926,90 @@ export function SiteOverview() {
 
       {error ? <p className="alert alert--error">{error}</p> : null}
 
-      {project?.status !== "verified" && project ? (
-        <p className="alert">
-          Alan adı henüz doğrulanmadı. Veriler toplanmadan önce DNS kaydını ekleyip doğrulayın.
+      {unverified ? (
+        <p className="alert alert--warn">
+          Alan adı henüz doğrulanmadı. Verilerinizin tamamını görmek için DNS
+          kaydını ekleyip doğrulamayı tamamlayın.
         </p>
       ) : null}
 
-      <div className="grid-4">
-        <div className="kpi">
-          <span>Ziyaretçi</span>
-          <b>{fmtInt(totals?.visitors ?? 0)}</b>
-        </div>
-        <div className="kpi">
-          <span>Sayfa görüntüleme</span>
-          <b>{fmtInt(totals?.pageviews ?? 0)}</b>
-        </div>
-        <div className="kpi">
-          <span>Event</span>
-          <b>{fmtInt(totals?.events ?? 0)}</b>
-        </div>
-        <div className="kpi">
-          <span>Dönüşüm</span>
-          <b>{fmtInt(totals?.conversions ?? 0)}</b>
-        </div>
-      </div>
+      {summary ? (
+        <>
+          <KpiCards summary={summary} />
 
-      <div className="card stack">
-        <h3 className="card__title">Kurulum</h3>
-        <p className="card__text">
-          Aşağıdaki satırı <span className="mono">&lt;head&gt;</span> bölümüne ekleyin. Kurulum
-          tespit edilene kadar “analitik aktif” sayılmaz — veriler ancak ilk event
-          geldiğinde görünür.
-        </p>
-        <pre className="code">{project?.script ?? "—"}</pre>
-      </div>
+          <div className="grid-2">
+            <Suspense fallback={<div className="card stack">Grafik yükleniyor…</div>}>
+              <TrafficChart series={summary.series} range={range} />
+            </Suspense>
+            <Realtime summary={summary} />
+          </div>
 
-      <div className="grid-2">
-        <div className="card">
-          <h3 className="card__title">En çok ziyaret edilen sayfalar</h3>
-          {stats?.summary?.topPages?.length ? (
-            <ul className="list" style={{ listStyle: "none" }}>
-              {stats.summary.topPages.map((row) => (
-                <li className="row" key={row.path} style={{ justifyContent: "space-between" }}>
-                  <span className="mono">{row.path}</span>
-                  <span className="faint mono">{fmtInt(row.n)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="card__text">Henüz veri yok.</p>
-          )}
+          <div className="grid-2">
+            <WebVitals metrics={metrics} />
+            <Breakdown
+              title="Cihaz ve tarayıcı"
+              rows={summary.devices.map((row) => ({
+                label: `${row.device} · ${row.browser}`,
+                value: row.n,
+                hint: row.os,
+              }))}
+            />
+          </div>
+
+          <div className="grid-2">
+            <Breakdown
+              title="En çok ziyaret edilen sayfalar"
+              rows={summary.topPages.map((row) => ({ label: row.path, value: row.n }))}
+            />
+            <Breakdown
+              title="Referrer"
+              rows={summary.referrers.map((row) => ({ label: row.referrer, value: row.n }))}
+            />
+          </div>
+
+          <div className="grid-2">
+            <Breakdown
+              title="Kampanyalar (UTM)"
+              rows={summary.campaigns.map((row) => ({
+                label: `${row.source ?? "—"}${row.medium ? ` · ${row.medium}` : ""}`,
+                value: row.n,
+                hint: row.campaign ?? undefined,
+              }))}
+              empty="Henüz UTM kampanyası yok."
+            />
+            <Breakdown
+              title="Özel event'ler"
+              rows={summary.customEvents.map((row) => ({ label: row.name, value: row.n }))}
+            />
+          </div>
+
+          {summary.countries.length ? (
+            <Breakdown
+              title="Ülkeler"
+              rows={summary.countries.map((row) => ({ label: row.country, value: row.n }))}
+            />
+          ) : null}
+
+          <div className="grid-2">
+            <GoalPanel projectId={id} goals={goals} onChange={loadGoals} />
+            <Breakdown
+              title="Dönüşümler"
+              rows={summary.goals.map((row) => ({ label: row.name, value: row.n }))}
+              empty="Henüz dönüşüm yok. Soldaki hedeflerden birini tanımlayın."
+            />
+          </div>
+        </>
+      ) : (
+        <div className="card stack">
+          <h3 className="card__title">Kurulum</h3>
+          <p className="card__text">
+            Aşağıdaki satırı <span className="mono">&lt;head&gt;</span> bölümüne ekleyin. Kurulum
+            tespit edilene kadar “analitik aktif” sayılmaz — veriler ancak ilk event geldiğinde
+            görünür.
+          </p>
+          <pre className="code">{project?.script ?? "—"}</pre>
         </div>
-        <div className="card">
-          <h3 className="card__title">Web Vitals</h3>
-          {metrics.length ? (
-            <ul className="list" style={{ listStyle: "none" }}>
-              {metrics.map((metric) => (
-                <li className="row" key={metric.metric} style={{ justifyContent: "space-between" }}>
-                  <span>
-                    {metric.metric}
-                    {metric.sufficient ? (
-                      <span className="faint mono"> · {fmtInt(metric.samples)} örnek</span>
-                    ) : null}
-                  </span>
-                  <span className="mono">
-                    {metric.sufficient
-                      ? `p75 ${fmtMetric(metric.metric, metric.p75)}`
-                      : "yeterli veri yok"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="card__text">Henüz veri yok.</p>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

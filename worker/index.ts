@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createAuth, enabledSocialProviders } from "./auth";
 import { rememberExecutionContext } from "./execution";
 import { siteByKey, siteByOrigin } from "./sites";
+import { goalsFor, type Goal } from "./goals";
 import {
   analyticsSummary,
   bucketCount,
@@ -522,24 +523,6 @@ async function resolveSite(
 /* ==========================================================================
    Goals
    ========================================================================== */
-
-type Goal = {
-  id: number;
-  public_id: string;
-  name: string;
-  label: string | null;
-  path: string | null;
-  value: number | null;
-};
-
-/** Goals of a site — only queried when a batch can actually convert. */
-async function goalsFor(db: D1Database, siteId: number): Promise<Goal[]> {
-  const { results } = await db
-    .prepare("SELECT id, public_id, name, label, path, value FROM goals WHERE site_id = ?")
-    .bind(siteId)
-    .all<Goal>();
-  return results;
-}
 
 /** Match an event against the site goals (by name, or by path for page goals). */
 function matchGoal(goals: Goal[], event: IncomingEvent, path: string | null): Goal | null {

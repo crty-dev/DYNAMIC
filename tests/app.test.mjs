@@ -505,6 +505,60 @@ describe("DYNAMIC application API", () => {
     assert.equal(stats.payload.summary.totals.pageviews, 1);
   });
 
+  it("manages the goals of a project", async () => {
+    const owner = await verifiedAccount("goals");
+    const created = await api("/api/projects", {
+      jar: owner.jar,
+      method: "POST",
+      body: { name: "Hedefler", hostname: `goals-${RUN}.crty-dev.com` },
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.payload).slice(0, 200));
+    const projectId = created.payload.project.id;
+
+    const empty = await api(`/api/projects/${projectId}/goals`, { jar: owner.jar });
+    assert.equal(empty.status, 200);
+    assert.deepEqual(empty.payload.goals, []);
+
+    const added = await api(`/api/projects/${projectId}/goals`, {
+      jar: owner.jar,
+      method: "POST",
+      body: { name: "signup_clicked", label: "Kayıt oldu" },
+    });
+    assert.equal(added.status, 201, JSON.stringify(added.payload).slice(0, 200));
+    assert.ok(added.payload.goal, "the new goal must have an id");
+
+    const list = await api(`/api/projects/${projectId}/goals`, { jar: owner.jar });
+    assert.equal(list.payload.goals.length, 1);
+    assert.equal(list.payload.goals[0].name, "signup_clicked");
+
+    // The event name is restricted: no spaces, no free text.
+    const invalid = await api(`/api/projects/${projectId}/goals`, {
+      jar: owner.jar,
+      method: "POST",
+      body: { name: "hatalı ad!" },
+    });
+    assert.equal(invalid.status, 400);
+
+    // Another account may not touch the goals of the project.
+    const intruder = await verifiedAccount("goal-intruder");
+    const foreign = await api(`/api/projects/${projectId}/goals`, { jar: intruder.jar });
+    assert.equal(foreign.status, 404);
+    const foreignCreate = await api(`/api/projects/${projectId}/goals`, {
+      jar: intruder.jar,
+      method: "POST",
+      body: { name: "stolen_goal" },
+    });
+    assert.equal(foreignCreate.status, 404);
+
+    const removed = await api(`/api/projects/${projectId}/goals/${added.payload.goal}`, {
+      jar: owner.jar,
+      method: "DELETE",
+    });
+    assert.equal(removed.status, 200);
+    const final = await api(`/api/projects/${projectId}/goals`, { jar: owner.jar });
+    assert.equal(final.payload.goals.length, 0);
+  });
+
   it("rejects an invalid or duplicate hostname", async () => {
     const owner = await verifiedAccount("hostnames");
 
