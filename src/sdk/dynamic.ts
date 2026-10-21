@@ -197,7 +197,15 @@ export function createSessionId(): string {
 const CONSENT_KEY = "dynamic_consent";
 const SESSION_KEY = "dynamic_sid";
 const SESSION_TTL = 30 * 60 * 1000;
-const DEFAULT_ENDPOINT = "https://dynamic.crty-dev.com/api/collect";
+/**
+ * The collect endpoint of the deployment that serves this file.
+ *
+ * It stays relative on purpose: the SDK is served by the same Worker that
+ * hosts the API, so "the API next to me" is the correct default. A third
+ * party site gets the absolute URL in the snippet (`data-endpoint`), which is
+ * why a fork never sends its visitor data to someone else's database.
+ */
+const DEFAULT_ENDPOINT = "/api/collect";
 const MAX_RETRIES = 2;
 
 type State = {
@@ -218,7 +226,7 @@ const isBrowser = typeof window !== "undefined" && typeof document !== "undefine
 const state: State = {
   options: {
     site: "",
-    endpoint: DEFAULT_ENDPOINT,
+    endpoint: "",
     vitals: true,
     respectDNT: true,
     autoPageview: true,
@@ -527,11 +535,22 @@ function resolveSite(): string {
   return "";
 }
 
+/** Read the collect endpoint from the script tag (absolute for other sites). */
+function resolveEndpoint(): string {
+  if (isBrowser) {
+    const script = document.currentScript as HTMLScriptElement | null;
+    const fromTag = script?.getAttribute("data-endpoint");
+    if (fromTag) return fromTag.trim();
+  }
+  return DEFAULT_ENDPOINT;
+}
+
 /** Initialize the SDK. Safe to call twice. */
 export function init(options: DynamicOptions = {}): void {
   if (!isBrowser) return;
   state.options = { ...state.options, ...options };
   if (!state.options.site) state.options.site = resolveSite();
+  if (!state.options.endpoint) state.options.endpoint = resolveEndpoint();
 
   const stored = consentState();
   const scriptConsent = (

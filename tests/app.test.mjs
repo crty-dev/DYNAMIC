@@ -41,6 +41,7 @@ let dns;
 const dnsState = { records: {} };
 
 before(async () => {
+  await assertPortFree();
   // A local DNS-over-HTTPS mock so the verification flow is deterministic.
   dns = createServer((req, res) => {
     const url = new URL(req.url, "http://127.0.0.1");
@@ -185,6 +186,23 @@ function normalRowId(users, address) {
 }
 
 /* ------------------------------------------------------------------ tests */
+
+/** Refuses to start when the port is already in use. */
+async function assertPortFree() {
+  try {
+    const response = await fetch(`${BASE}/api/health`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    if (response.ok || response.status === 404) {
+      throw new Error(
+        `Port ${PORT} is already in use - stop the other dev server first.`,
+      );
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("already in use")) throw error;
+    // Nothing is listening: the port is free.
+  }
+}
 
 describe("DYNAMIC application API", () => {
   it("registers a user but does not create a session before the e-mail is verified", async () => {
@@ -379,6 +397,112 @@ describe("DYNAMIC application API", () => {
       method: "DELETE",
     });
     assert.equal(remove.status, 404);
+  });
+
+  it("shows the collected data of a project in the console", async () => {
+    const owner = await verifiedAccount("flow");
+    const hostname = `flow-${RUN}.crty-dev.com`;
+    const created = await api("/api/projects", {
+      jar: owner.jar,
+      method: "POST",
+      body: { name: "Flow", hostname },
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.payload).slice(0, 200));
+    const project = created.payload.project;
+
+    // The SDK reports with the project id and the origin of the site.
+    const collect = await api("/api/collect", {
+      method: "POST",
+      headers: { origin: `https://${hostname}` },
+      body: {
+        site: project.id,
+        events: [
+          {
+            type: "pageview",
+            path: "/blog/ilk-yazi",
+            ts: Date.now(),
+            session: `s_flow_${RUN}`,
+            ref: "https://ornek.com",
+            utm: { source: "haber", medium: "bulten", campaign: "kis" },
+          },
+          {
+            type: "vital",
+            metric: "LCP",
+            value: 1234,
+            rating: "needs-improvement",
+            id: `lcp-flow-${RUN}`,
+            path: "/blog/ilk-yazi",
+            ts: Date.now(),
+            session: `s_flow_${RUN}`,
+          },
+          {
+            type: "event",
+            name: "newsletter",
+            path: "/blog/ilk-yazi",
+            ts: Date.now(),
+            session: `s_flow_${RUN}`,
+            value: 1,
+          },
+        ],
+      },
+    });
+    assert.equal(collect.status, 202, JSON.stringify(collect.payload).slice(0, 200));
+    assert.equal(collect.payload.accepted, 3);
+
+    // The console reads the project stats: the site must be found and the
+    // numbers must be there.
+    const stats = await api(`/api/projects/${project.id}/stats?range=24h&fresh=1`, {
+      jar: owner.jar,
+    });
+    assert.equal(stats.status, 200, JSON.stringify(stats.payload).slice(0, 300));
+    assert.equal(stats.payload.installed, true, "the project must find its site");
+    assert.equal(stats.payload.summary.totals.pageviews, 1);
+    assert.equal(stats.payload.summary.totals.visitors, 1);
+    assert.equal(stats.payload.summary.totals.customEvents, 1);
+    assert.equal(stats.payload.summary.topPages[0].path, "/blog/ilk-yazi");
+    assert.equal(stats.payload.rum.metrics.find((m) => m.metric === "LCP").samples, 1);
+    // One sample is not enough for a percentile: the API must say so.
+    assert.equal(stats.payload.rum.metrics.find((m) => m.metric === "LCP").p75, null);
+    assert.match(stats.payload.rum.metrics.find((m) => m.metric === "LCP").note, /20 samples/);
+  });
+
+  it("adopts the site that the ingest already created for a hostname", async () => {
+    const hostname = `adopt-${RUN}.crty-dev.com`;
+    const origin = `https://${hostname}`;
+
+    // The SDK reports before the project exists: the ingest writes the site.
+    const collect = await api("/api/collect", {
+      method: "POST",
+      headers: { origin },
+      body: {
+        site: hostname,
+        events: [
+          {
+            type: "pageview",
+            path: "/",
+            ts: Date.now(),
+            session: `s_adopt_${RUN}`,
+          },
+        ],
+      },
+    });
+    assert.equal(collect.status, 202, JSON.stringify(collect.payload).slice(0, 200));
+
+    const owner = await verifiedAccount("adopt");
+    const created = await api("/api/projects", {
+      jar: owner.jar,
+      method: "POST",
+      body: { name: "Adopt", hostname },
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.payload).slice(0, 200));
+    const project = created.payload.project;
+
+    // The project has to point at the site that already holds the data.
+    const stats = await api(`/api/projects/${project.id}/stats?range=24h&fresh=1`, {
+      jar: owner.jar,
+    });
+    assert.equal(stats.payload.installed, true, "the project must adopt the existing site");
+    assert.equal(stats.payload.summary.totals.pageviews, 1);
   });
 
   it("rejects an invalid or duplicate hostname", async () => {

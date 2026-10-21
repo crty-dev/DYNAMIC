@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { createAuth, enabledSocialProviders } from "./auth";
 import { rememberExecutionContext } from "./execution";
+import { siteByKey, siteByOrigin } from "./sites";
 import {
   analyticsSummary,
   bucketCount,
@@ -444,20 +445,6 @@ async function readBinary(
 
 const SITE_COLUMNS =
   "id, public_id, name, origin, created_at, retention_days, daily_event_limit, events_today, counter_day";
-
-async function siteByOrigin(db: D1Database, origin: string): Promise<Site | null> {
-  return db
-    .prepare(`SELECT ${SITE_COLUMNS} FROM sites WHERE origin = ? LIMIT 1`)
-    .bind(origin)
-    .first<Site>();
-}
-
-async function siteByKey(db: D1Database, key: string): Promise<Site | null> {
-  return db
-    .prepare(`SELECT ${SITE_COLUMNS} FROM sites WHERE public_id = ? LIMIT 1`)
-    .bind(key)
-    .first<Site>();
-}
 
 async function siteById(db: D1Database, id: number): Promise<Site | null> {
   return db

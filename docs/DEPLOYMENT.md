@@ -14,6 +14,7 @@ izleme ve sorun giderme.
 2. [Cloudflare Free limitleri](#2-cloudflare-free-limitleri)
 3. [R2 ne zaman gerekir?](#3-r2-ne-zaman-gerekir)
 4. [DYNAMIC Console (uygulama) dağıtımı](#4-dynamic-console-uygulama-dağıtımı)
+4.1. [Yerel geliştirme](#41-yerel-geliştirme)
 5. [Süper admin paneli](#5-süper-admin-paneli)
 6. [Environment variable ve secret listesi](#6-environment-variable-ve-secret-listesi)
 7. [Alan adı ve DNS kurulumu](#7-alan-adı-ve-dns-kurulumu)
@@ -237,6 +238,38 @@ Google için *Google Cloud Console → APIs & Services → Credentials → OAuth
 client ID* kullanılır. GitHub'ın varsayılan kapsamı (`read:user`,
 `user:email`) doğrulamalı e-posta adresini getirdiği için sosyal girişle
 gelen hesaplar "doğrulanmamış" duruma düşmez.
+
+---
+
+## 4.1 Yerel geliştirme
+
+Üç süreç gerekir: Worker (API + statik dosyalar), pazarlama sitesi ve Console.
+**Vite her ikisinde de `/api` isteklerini Worker'a proxy'ler** — bu sayede her şey
+tek origin'de kalır: oturum çerezi first-party olur, SDK olayları yerel D1'e
+düşer, `localhost` ile `127.0.0.1` arasındaki "cross-site" farkı çerezi
+düşürmez.
+
+```bash
+# 0) Yerel şema
+npm run db:migrate:local
+
+# 1) Worker: API + üretim varlıkları (http://127.0.0.1:8787)
+npx wrangler dev --port 8787
+
+# 2) Pazarlama sitesi (http://localhost:5173) — /api proxy'si 8787'ye gider
+npm run dev
+
+# 3) Console (http://localhost:5174/app) — /api proxy'si 8787'ye gider
+npm run dev:app
+```
+
+| Değişken | Ne zaman |
+| --- | --- |
+| `DYNAMIC_API_ORIGIN` | Worker farklı bir portta çalışıyorsa (varsayılan `http://127.0.0.1:8787`). |
+| `VITE_API_ORIGIN` | Yalnızca proxy'yi atlamak istiyorsanız (API doğrudan adrese gider; **oturum çerezi düşer**, geliştirme için önerilmez). |
+
+Doğrulama e-postaları `DEV_MODE=1` ile `GET /api/dev/mailbox` outbox'ına düşer
+(yalnızca yerelde; üretimde bu uç yoktur).
 
 ---
 

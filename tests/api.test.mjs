@@ -25,6 +25,7 @@ const ADMIN = devVar("ADMIN_API_KEY");
 let server;
 
 before(async () => {
+  await assertPortFree();
   const run = Date.now().toString(36);
   ORIGIN = `https://test-${run}.dynamic.local`;
   OTHER_ORIGIN = `https://other-${run}.dynamic.local`;
@@ -92,6 +93,23 @@ async function admin(pathname, init = {}) {
 }
 
 /* -------------------------------------------------------------------- tests */
+
+/** Refuses to start when the port is already in use. */
+async function assertPortFree() {
+  try {
+    const response = await fetch(`${BASE}/api/health`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    if (response.ok || response.status === 404) {
+      throw new Error(
+        `Port ${PORT} is already in use - stop the other dev server first.`,
+      );
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("already in use")) throw error;
+    // Nothing is listening: the port is free.
+  }
+}
 
 describe("DYNAMIC API", () => {
   it("reports health", async () => {

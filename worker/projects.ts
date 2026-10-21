@@ -5,6 +5,7 @@ import { analyticsSummary, resolveRange, rumSummary } from "./analytics";
 import { lookupTxt, normalizeHostname, verificationRecord } from "./dns";
 import { config, type AppEnv } from "./env";
 import { rateLimit } from "./rate-limit";
+import { siteByOrigin } from "./sites";
 
 /* ==========================================================================
    Website projects
@@ -55,7 +56,10 @@ function projectView(project: Project, appUrl: string) {
     lastCheckedAt: project.last_checked_at,
     createdAt: project.created_at,
     record: verificationRecord(project.hostname, project.verification_token),
-    script: `<script async src="${appUrl}/js/dynamic.js" data-site="${project.public_id}"></script>`,
+    // The endpoint is absolute: the site that installs the snippet is usually
+    // not the deployment that serves the SDK, so the events must go to this
+    // deployment and not to the origin of the visitor's page.
+    script: `<script async src="${appUrl}/js/dynamic.js" data-site="${project.public_id}" data-endpoint="${appUrl}/api/collect"></script>`,
   };
 }
 
@@ -155,9 +159,17 @@ export function createProjectsApp(): Hono<AppEnv> {
       );
     }
 
-    const publicId = `site_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    const origin = `https://${hostname.hostname}`;
     const token = newVerificationToken();
     const now = Date.now();
+
+    // The site may already exist: the SDK reports before the project is
+    // created, and the ingest writes the site row for that origin. The
+    // project then adopts the existing site id, otherwise the console would
+    // look for a site that was never written (the insert below would be
+    // ignored because the origin is unique) and show no data at all.
+    const existingSite = await siteByOrigin(c.env.DB, origin);
+    const publicId = existingSite?.public_id ?? `site_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
 
     await c.env.DB.prepare(
       `INSERT INTO projects
@@ -169,12 +181,15 @@ export function createProjectsApp(): Hono<AppEnv> {
       .run();
 
     // The analytics site is created together with the project so the SDK can
-    // report straight away. The id stays the same when the origin is known.
-    await c.env.DB.prepare(
-      "INSERT OR IGNORE INTO sites (public_id, name, origin, created_at) VALUES (?, ?, ?, ?)",
-    )
-      .bind(publicId, parsed.data.name.trim(), `https://${hostname.hostname}`, now)
-      .run();
+    // report straight away. If the site already exists (the ingest created
+    // it), the project has adopted its id and nothing has to be written.
+    if (!existingSite) {
+      await c.env.DB.prepare(
+        "INSERT OR IGNORE INTO sites (public_id, name, origin, created_at) VALUES (?, ?, ?, ?)",
+      )
+        .bind(publicId, parsed.data.name.trim(), origin, now)
+        .run();
+    }
 
     const project = await c.env.DB.prepare(
       `SELECT ${PROJECT_COLUMNS} FROM projects WHERE public_id = ? AND user_id = ? LIMIT 1`,

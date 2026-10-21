@@ -21,6 +21,7 @@ const ORIGIN = "http://localhost:5174";
 let dev;
 
 before(async () => {
+  await assertPortFree();
   const migrate = spawnSync(
     process.execPath,
     [WRANGLER, "d1", "migrations", "apply", "dynamic", "--local"],
@@ -75,6 +76,23 @@ async function signIn(headers = {}) {
     }),
   });
   return response.status;
+}
+
+/** Refuses to start when the port is already in use. */
+async function assertPortFree() {
+  try {
+    const response = await fetch(`${BASE}/api/health`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    if (response.ok || response.status === 404) {
+      throw new Error(
+        `Port ${PORT} is already in use - stop the other dev server first.`,
+      );
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("already in use")) throw error;
+    // Nothing is listening: the port is free.
+  }
 }
 
 describe("auth rate limiting", () => {
