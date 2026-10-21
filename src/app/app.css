@@ -1087,6 +1087,46 @@ select {
   justify-content: flex-end;
 }
 
+/* The range switcher and the view tabs of the signature features. */
+.console__range {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+
+.console__range button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.console__range button:hover {
+  color: var(--text);
+}
+
+.console__range button.is-active {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+}
+
+.console__range button:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
 .progress {
   height: 6px;
   overflow: hidden;

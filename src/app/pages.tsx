@@ -21,6 +21,7 @@ import {
 } from "./auth-shell";
 import { Breakdown, KpiCards, Realtime, WebVitals } from "./console/blocks";
 import { GoalPanel } from "./console/goal-panel";
+import { ChangeRadar, InsightPanel, PrivacyPanel } from "./console/signature";
 import { PRIVACY_URL } from "../lib/app-url";
 
 // The chart pulls in the whole charting runtime, so it loads on its own.
@@ -869,6 +870,9 @@ export function SiteOverview() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState("7d");
+  // The signature features live next to the overview, not inside it: the
+  // overview stays a one-glance page, the three panels are the deep dives.
+  const [view, setView] = useState<"overview" | "radar" | "insights" | "privacy">("overview");
 
   useEffect(() => {
     projectsApi
@@ -910,18 +914,42 @@ export function SiteOverview() {
           {project?.name ?? "Web sitesi"}
         </h2>
         {project ? <StatusPill status={project.status} /> : null}
-        <div className="console__range" style={{ marginLeft: "auto" }} role="group" aria-label="Aralık">
-          {["24h", "7d", "30d"].map((key) => (
-            <button
-              key={key}
-              type="button"
-              className={range === key ? "is-active" : undefined}
-              onClick={() => setRange(key)}
-            >
-              {key}
-            </button>
-          ))}
-        </div>
+        {view === "overview" ? (
+          <div className="console__range" style={{ marginLeft: "auto" }} role="group" aria-label="Aralık">
+            {["24h", "7d", "30d"].map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={range === key ? "is-active" : undefined}
+                onClick={() => setRange(key)}
+              >
+                {key}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="console__range" role="tablist" aria-label="Görünüm">
+        {(
+          [
+            ["overview", "Özet"],
+            ["radar", "Değişim Radarı"],
+            ["insights", "Fix-to-Proof"],
+            ["privacy", "Gizlilik Kapısı"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={view === key}
+            className={view === key ? "is-active" : undefined}
+            onClick={() => setView(key)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {error ? <p className="alert alert--error">{error}</p> : null}
@@ -933,7 +961,12 @@ export function SiteOverview() {
         </p>
       ) : null}
 
-      {summary ? (
+      {view === "radar" ? <ChangeRadar projectId={id} /> : null}
+      {view === "insights" ? <InsightPanel projectId={id} /> : null}
+      {view === "privacy" ? <PrivacyPanel projectId={id} /> : null}
+
+      {view === "overview" ? (
+        summary ? (
         <>
           <KpiCards summary={summary} />
 
@@ -1009,10 +1042,10 @@ export function SiteOverview() {
           </p>
           <pre className="code">{project?.script ?? "—"}</pre>
         </div>
-      )}
+      )
+    ) : null}
     </div>
-  );
-}
+  );}
 
 /* ---------------------------------------------------------------- settings */
 

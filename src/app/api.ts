@@ -159,6 +159,140 @@ export const projectsApi = {
     ),
 };
 
+/* ------------------------------------------------------- signature features */
+
+export type Release = {
+  id: number;
+  version: string;
+  deployedAt: number;
+  firstSeenAt?: number;
+  source: string;
+};
+
+/** The comparison of one metric around a release. */
+export type Comparison = {
+  metric: string;
+  scope: string;
+  before: { samples: number; p50: number | null; p75: number | null; avg: number | null };
+  after: { samples: number; p50: number | null; p75: number | null; avg: number | null };
+  delta: number | null;
+  relative: number | null;
+  verdict: "regression" | "improvement" | "stable" | "insufficient_data";
+  reason: string;
+};
+
+export type Radar = {
+  ok: boolean;
+  release: Release | null;
+  releases: Release[];
+  window: string;
+  windowLabel: string;
+  minSamples: number;
+  metrics: Comparison[];
+  segments: { scope: string; metrics: Comparison[] }[];
+  errors: Comparison | null;
+  timeline: { bucketMs: number; metrics: Record<string, TimelinePoint[]> };
+  empty?: boolean;
+  message?: string;
+  note?: string;
+};
+
+export type TimelinePoint = { t: number; samples: number; p75: number | null; avg: number | null };
+
+export type Insight = {
+  fingerprint: string;
+  kind: string;
+  scope: string;
+  title: string;
+  severity: "critical" | "warning" | "info";
+  status: "open" | "investigating" | "fixed" | "dismissed";
+  measurement: string;
+  value: string;
+  samples: number;
+  reason: string;
+  guidance: string[];
+  code?: { language: string; label: string; snippet: string };
+  general?: boolean;
+  releaseId?: number | null;
+  releaseVersion?: string | null;
+  firstSeenAt?: number;
+  lastSeenAt?: number;
+  assessment?: {
+    outcome: "improved" | "regressed" | "inconclusive" | "insufficient_data";
+    before: number | null;
+    after: number | null;
+    delta: number | null;
+    samples: { before: number; after: number };
+    reason: string;
+  } | null;
+};
+
+export type Insights = {
+  ok: boolean;
+  period: string;
+  issues: Insight[];
+  empty?: boolean;
+  minSamples?: number;
+  note?: string;
+};
+
+export type PrivacyReport = {
+  ok: boolean;
+  rules: {
+    sensitiveKeys: boolean;
+    valuePatterns: string[];
+    queryParameters: boolean;
+    pathSegments: boolean;
+    errorMessages: boolean;
+  };
+  counters: { category: string; count: number; updatedAt: number }[];
+  total: number;
+  serverSide?: boolean;
+  note?: string;
+};
+
+export type PrivacyTest = {
+  ok: boolean;
+  total: number;
+  blocked: number;
+  samples: {
+    label: string;
+    blocked: boolean;
+    blockedByKey: string[];
+    blockedByValue: string[];
+    redactedUrl: { url: string; fields: string[] } | null;
+  }[];
+  note?: string;
+};
+
+export const signatureApi = {
+  releases: (id: string) =>
+    request<{ ok: boolean; releases: Release[] }>(`/api/projects/${id}/releases`),
+  addRelease: (id: string, version: string, deployedAt?: number) =>
+    request<{ ok: boolean; release: Release }>(`/api/projects/${id}/releases`, {
+      method: "POST",
+      body: JSON.stringify({ version, deployedAt }),
+    }),
+  radar: (id: string, window: string, release?: number) =>
+    request<Radar>(
+      `/api/projects/${id}/radar?window=${window}${release ? `&release=${release}` : ""}`,
+    ),
+  insights: (id: string, range: string) =>
+    request<Insights>(`/api/projects/${id}/insights?range=${range}`),
+  setInsight: (
+    id: string,
+    fingerprint: string,
+    body: { status: Insight["status"]; releaseId?: number | null },
+  ) =>
+    request<{ ok: boolean; status: string; releaseId: number | null }>(
+      `/api/projects/${id}/insights/${encodeURIComponent(fingerprint)}`,
+      { method: "PATCH", body: JSON.stringify(body) },
+    ),
+  privacy: (id: string) => request<PrivacyReport>(`/api/projects/${id}/privacy`),
+  privacyTest: (id: string) =>
+    request<PrivacyTest>(`/api/projects/${id}/privacy/test`, { method: "POST" }),
+};
+
 /* ------------------------------------------------------------- formatters */
 
 export const fmtInt = (value: number): string => value.toLocaleString("tr-TR");

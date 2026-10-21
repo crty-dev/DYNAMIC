@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createAuth, enabledSocialProviders } from "./auth";
 import { rememberExecutionContext } from "./execution";
 import { siteByKey, siteByOrigin } from "./sites";
+import { addPrivacyCounters, upsertRelease } from "./signature";
 import { goalsFor, type Goal } from "./goals";
 import {
   analyticsSummary,
@@ -74,6 +75,8 @@ const baseEventShape = {
   utm: utmSchema,
   /** Optional JSON object; capped at 4 KB before storage. */
   attribution: z.record(z.string(), z.unknown()).optional(),
+  /** The release that was live when the measurement was taken. */
+  release: z.string().max(64).optional(),
 };
 
 const eventSchema = z.discriminatedUnion("type", [
@@ -100,12 +103,39 @@ const eventSchema = z.discriminatedUnion("type", [
     value: z.number().nonnegative().max(1_000_000_000).optional(),
     props: z.record(z.string(), z.unknown()).optional(),
   }),
+  z.object({
+    ...baseEventShape,
+    type: z.literal("release"),
+    /** The version string the developer chose (no source code, no secrets). */
+    version: z
+      .string()
+      .min(1)
+      .max(64)
+      .regex(/^[A-Za-z0-9._+-]+$/, "Use letters, numbers, ., _, + or - only"),
+    /** When the release went live (ms). */
+    deployedAt: z.number().int().nonnegative().optional(),
+  }),
+  z.object({
+    ...baseEventShape,
+    type: z.literal("error"),
+    /** The redacted error message. */
+    message: z.string().max(300).optional(),
+    kind: z.enum(["error", "unhandledrejection"]).optional(),
+    /** The host of the script that failed (never a full path). */
+    source: z.string().max(253).optional(),
+    line: z.number().int().nonnegative().max(100000).optional(),
+    column: z.number().int().nonnegative().max(100000).optional(),
+  }),
 ]);
 
 const envelopeSchema = z.object({
   /** Optional public site key or hostname. Falls back to the request origin. */
   site: z.string().min(1).max(253).optional(),
   events: z.array(eventSchema).max(MAX_BATCH),
+  /**
+   * The counters of the Privacy Gate — counts only, never a value.
+   */
+  privacy: z.record(z.string().max(32), z.number().int().nonnegative()).optional(),
 });
 
 type IncomingEvent = z.infer<typeof eventSchema>;
@@ -229,6 +259,44 @@ function cleanReferrer(value: string | undefined): string | null {
   return host.slice(0, 253);
 }
 
+/** The release version of an event — a short, safe identifier. */
+function cleanRelease(value: string | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim().replace(CONTROL_CHARS, "");
+  if (!trimmed || !/^[A-Za-z0-9._+-]{1,64}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+/**
+ * The details of a JavaScript error.
+ *
+ * The message is validated again on the server: a stack that carries an
+ * e-mail address or a token is replaced, never stored.
+ */
+function cleanErrorDetail(event: Extract<IncomingEvent, { type: "error" }>): Record<string, unknown> | null {
+  const out: Record<string, unknown> = {};
+  const message = (event.message ?? "").trim().slice(0, 300);
+  if (message) {
+    out.message = isSensitiveText(message) ? "[redacted]" : message.replace(CONTROL_CHARS, "");
+  }
+  if (event.kind) out.kind = event.kind;
+  const source = cleanReferrer(event.source);
+  if (source) out.source = source;
+  if (typeof event.line === "number") out.line = event.line;
+  if (typeof event.column === "number") out.column = event.column;
+  return Object.keys(out).length ? out : null;
+}
+
+/** True when a free text value looks like personal data or a secret. */
+function isSensitiveText(value: string): boolean {
+  return (
+    /[^\s@<>()[\],;:]+@[^\s@<>()[\],;:]+\.[a-z]{2,}/i.test(value) ||
+    /\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{4,}/.test(value) ||
+    /\b[0-9a-f]{24,}\b/i.test(value) ||
+    /\b(?:bearer|basic|token|password|secret)\s*[:=]?\s*\S{8,}/i.test(value)
+  );
+}
+
 function cleanTag(value: string | undefined): string | null {
   if (!value) return null;
   const trimmed = value.trim().replace(CONTROL_CHARS, "");
@@ -281,6 +349,9 @@ function cleanProps(props: Record<string, unknown> | undefined): Record<string, 
     if (!name) continue;
     if (PII_KEYS.has(name.toLowerCase())) continue;
     if (typeof value === "string") {
+      // The client filters too, but the server validates on its own: a
+      // value that looks like an e-mail or a token is never stored.
+      if (isSensitiveText(value)) continue;
       out[name] = value.slice(0, MAX_PROP_VALUE);
     } else if (typeof value === "number" && Number.isFinite(value)) {
       out[name] = value;
@@ -315,6 +386,9 @@ function cleanAttribution(value: unknown): Record<string, unknown> | null {
       text = text.replace(/=\s*"[^"]*"/g, '=""').replace(/=\s*'[^']*'/g, "=''");
       // Drop query strings and fragments from URLs.
       text = text.split("?")[0].split("#")[0];
+      // The value check runs on the cleaned text: a query string that
+      // carried an e-mail is already gone, the readable path stays.
+      if (isSensitiveText(text)) continue;
       out[name] = text.slice(0, 200);
     } else if (typeof raw === "number" && Number.isFinite(raw)) {
       out[name] = raw;
@@ -567,13 +641,20 @@ function unauthorized(c: Context<AppEnv>) {
   return c.json({ error: "unauthorized" }, 401);
 }
 
-/** The visitor IP as seen by the edge (empty string for server-to-server calls). */
+/**
+ * The visitor IP as seen by the edge (empty string for server-to-server calls).
+ *
+ * `cf-connecting-ip` is the header Cloudflare writes itself, but a zone
+ * that removes the visitor IP headers also removes it. `x-real-ip` is
+ * rewritten by the edge with the real address, so it is the second
+ * choice; `x-forwarded-for` is the last one because a visitor can send it.
+ */
 function clientIp(c: Context<AppEnv>): string {
-  return (
-    c.req.header("cf-connecting-ip") ??
-    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-    ""
-  );
+  const edge = c.req.header("cf-connecting-ip")?.trim();
+  if (edge) return edge;
+  const real = c.req.header("x-real-ip")?.trim();
+  if (real) return real;
+  return c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
 }
 
 function tooManyRequests(c: Context<AppEnv>, retryAfter: number) {
@@ -605,6 +686,11 @@ app.use("/api/collect", async (c, next) => {
 
   if (corsOrigin) {
     c.header("Access-Control-Allow-Origin", corsOrigin);
+    // The SDK sends the batch with navigator.sendBeacon, which always
+    // includes the credentials. The browser therefore refuses the request
+    // unless the preflight allows credentials — without this header every
+    // third party site would silently lose its events.
+    c.header("Access-Control-Allow-Credentials", "true");
     c.header("Vary", "Origin");
   }
 
@@ -695,6 +781,7 @@ app.post("/api/collect", async (c) => {
 
   let siteKey: string | undefined;
   let events: IncomingEvent[];
+  let privacyCounters: Record<string, number> | undefined;
 
   if (Array.isArray(raw)) {
     const parsed = z.array(eventSchema).max(MAX_BATCH).safeParse(raw);
@@ -705,6 +792,7 @@ app.post("/api/collect", async (c) => {
     if (!parsed.success) return invalidPayload(c, parsed.error.issues);
     siteKey = parsed.data.site;
     events = parsed.data.events;
+    privacyCounters = parsed.data.privacy;
   }
 
   if (events.length === 0) {
@@ -764,11 +852,24 @@ app.post("/api/collect", async (c) => {
     const goals = canConvert ? await goalsFor(c.env.DB, site.id) : [];
 
     const statements: D1PreparedStatement[] = [];
-    const eventStatementCount = events.length;
     const sessionSeen = new Set<string>();
+    // Maps a statement onto the event it belongs to: a release marker is
+    // stored in the releases table and is not a measurement.
+    const statementEvent: number[] = [];
+    let releaseMarkers = 0;
 
     for (let index = 0; index < events.length; index++) {
       const event = events[index];
+
+      // A release marker: the version and the moment it went live. It is
+      // not a measurement, so it does not become an event row.
+      if (event.type === "release") {
+        const deployedAt = normalizeTs(event.deployedAt ?? event.ts, now);
+        await upsertRelease(c.env.DB, site.id, event.version, deployedAt, "sdk");
+        releaseMarkers += 1;
+        continue;
+      }
+
       const ts = normalizeTs(event.ts, now);
       const path = cleanPath(event.path);
       const referrer = cleanReferrer(event.ref);
@@ -786,14 +887,18 @@ app.post("/api/collect", async (c) => {
       } else if (event.type === "event") {
         metric = event.name;
         value = event.value ?? null;
+      } else if (event.type === "error") {
+        // JavaScript errors are measurements of their own: they are counted
+        // per page and compared around a release.
+        metric = "js_error";
       }
 
       statements.push(
         c.env.DB.prepare(
           `INSERT OR IGNORE INTO events
             (site_id, ts, metric, value, rating, path, country, ua, session_id, metric_id,
-             attribution, referrer, utm_source, utm_medium, utm_campaign, device, browser, os, goal)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             attribution, referrer, utm_source, utm_medium, utm_campaign, device, browser, os, goal, release)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).bind(
           site.id,
           ts,
@@ -814,8 +919,10 @@ app.post("/api/collect", async (c) => {
           browser,
           os,
           goal ? goal.name : null,
+          cleanRelease(event.release),
         ),
       );
+      statementEvent.push(index);
 
       if (session) sessionSeen.add(session);
     }
@@ -854,14 +961,19 @@ app.post("/api/collect", async (c) => {
             SET events_today = CASE WHEN counter_day = ? THEN events_today + ? ELSE ? END,
                 counter_day = ?
           WHERE id = ?`,
-      ).bind(today, events.length, events.length, today, site.id),
+      ).bind(today, statementEvent.length, statementEvent.length, today, site.id),
     );
+
+    // The Privacy Gate counters: only how many payloads were blocked.
+    if (privacyCounters && Object.keys(privacyCounters).length) {
+      await addPrivacyCounters(c.env.DB, site.id, privacyCounters).catch(() => undefined);
+    }
 
     const results = await c.env.DB.batch(statements);
     let accepted = 0;
     let deduped = 0;
     let failed = 0;
-    for (let index = 0; index < eventStatementCount; index++) {
+    for (let index = 0; index < statementEvent.length; index++) {
       const changes = results[index]?.meta.changes ?? 0;
       if (changes > 0) {
         accepted += changes;
@@ -869,7 +981,8 @@ app.post("/api/collect", async (c) => {
       }
       // A vital with a metric id is a duplicate (web-vitals can report twice);
       // anything else means the row was not written.
-      if (events[index].id) deduped += 1;
+      const event = events[statementEvent[index]];
+      if (event?.id) deduped += 1;
       else failed += 1;
     }
     if (failed > 0) console.error("collect_partial_write", { site: site.public_id, failed });
@@ -880,6 +993,7 @@ app.post("/api/collect", async (c) => {
         accepted,
         deduped,
         failed,
+        releases: releaseMarkers,
         sessions: sessionSeen.size,
         site: site.public_id,
         ...(resolved.created ? { created: true } : {}),
@@ -910,7 +1024,9 @@ function attributionFor(event: IncomingEvent): string | null | "too_large" {
       ? cleanAttribution(event.attribution)
       : event.type === "event"
         ? cleanProps(event.props ?? event.attribution)
-        : undefined;
+        : event.type === "error"
+          ? cleanErrorDetail(event)
+          : undefined;
   if (payload === undefined) return null;
   if (jsonSize(payload) > MAX_ATTRIBUTION_BYTES) return "too_large";
   return JSON.stringify(payload);

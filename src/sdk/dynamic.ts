@@ -14,6 +14,14 @@
  *    console when debug is on) instead of being retried forever.
  */
 import { onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals";
+import {
+  DEFAULT_PRIVACY,
+  inspectEvent,
+  readCounters,
+  selfTest,
+  type PrivacyConfig,
+  type PrivacyCounters,
+} from "./privacy";
 
 export type DynamicPageview = {
   type: "pageview";
@@ -22,6 +30,7 @@ export type DynamicPageview = {
   session: string;
   ref?: string;
   utm?: { source?: string; medium?: string; campaign?: string };
+  release?: string;
 };
 
 export type DynamicVital = {
@@ -33,6 +42,7 @@ export type DynamicVital = {
   path: string;
   ts: number;
   session: string;
+  release?: string;
 };
 
 export type DynamicCustom = {
@@ -43,9 +53,39 @@ export type DynamicCustom = {
   session: string;
   value?: number;
   props?: Record<string, string | number | boolean>;
+  release?: string;
 };
 
-export type DynamicEvent = DynamicPageview | DynamicVital | DynamicCustom;
+/** A release marker — the version that is live from this moment on. */
+export type DynamicRelease = {
+  type: "release";
+  version: string;
+  deployedAt: number;
+  ts: number;
+  session: string;
+  path: string;
+};
+
+/** A JavaScript error, reported without any source code. */
+export type DynamicError = {
+  type: "error";
+  message: string;
+  kind: "error" | "unhandledrejection";
+  source?: string;
+  line?: number;
+  column?: number;
+  path: string;
+  ts: number;
+  session: string;
+  release?: string;
+};
+
+export type DynamicEvent =
+  | DynamicPageview
+  | DynamicVital
+  | DynamicCustom
+  | DynamicRelease
+  | DynamicError;
 
 export type DynamicOptions = {
   /** Site key (the public id from the console). */
@@ -64,6 +104,10 @@ export type DynamicOptions = {
   maxBatch?: number;
   /** Log decisions to the console. */
   debug?: boolean;
+  /** Privacy Gate configuration (default: the conservative preset). */
+  privacy?: Partial<PrivacyConfig>;
+  /** The release that is live right now (e.g. "2026.10.4"). */
+  release?: string;
 };
 
 /* -------------------------------------------------------------------------
@@ -196,6 +240,9 @@ export function createSessionId(): string {
 
 const CONSENT_KEY = "dynamic_consent";
 const SESSION_KEY = "dynamic_sid";
+/** The moment the session was created, so it survives a page reload. */
+const SESSION_AT_KEY = "dynamic_sid_at";
+const RELEASE_KEY = "dynamic_release";
 const SESSION_TTL = 30 * 60 * 1000;
 /**
  * The collect endpoint of the deployment that serves this file.
@@ -219,6 +266,9 @@ type State = {
   lastPath: string | null;
   utmSent: boolean;
   pending: Promise<void>;
+  privacy: PrivacyConfig;
+  /** The release that is live right now. */
+  release: string | null;
 };
 
 const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
@@ -233,6 +283,8 @@ const state: State = {
     flushInterval: 5000,
     maxBatch: 32,
     debug: false,
+    privacy: DEFAULT_PRIVACY,
+    release: "",
   },
   queue: [],
   session: null,
@@ -243,6 +295,8 @@ const state: State = {
   lastPath: null,
   utmSent: false,
   pending: Promise.resolve(),
+  privacy: DEFAULT_PRIVACY,
+  release: null,
 };
 
 function debug(...args: unknown[]) {
@@ -290,19 +344,29 @@ function hasDoNotTrack(): boolean {
   return value === "1" || value === "yes";
 }
 
-/** Current session id, rotated after 30 minutes of inactivity. */
+/**
+ * Current session id, rotated after 30 minutes of inactivity.
+ *
+ * The id lives in sessionStorage, so it survives a page reload: a visitor
+ * that navigates inside the same tab keeps one session. The creation time
+ * is stored next to it, otherwise every reload would look like a new
+ * session and the visitor count would explode.
+ */
 function sessionId(): string | null {
   if (!state.consented) return null;
   const now = Date.now();
   const stored = readStorage(SESSION_KEY);
-  if (stored && now - state.sessionAt < SESSION_TTL && state.session) {
-    state.sessionAt = now;
-    return state.session;
+  const storedAt = Number(readStorage(SESSION_AT_KEY) ?? "0");
+  if (stored && storedAt > 0 && now - storedAt < SESSION_TTL) {
+    state.session = stored;
+    state.sessionAt = storedAt;
+    return stored;
   }
   const id = createSessionId();
   state.session = id;
   state.sessionAt = now;
   writeStorage(SESSION_KEY, id);
+  writeStorage(SESSION_AT_KEY, String(now));
   return id;
 }
 
@@ -311,11 +375,35 @@ function currentPath(): string {
   return window.location.pathname || "/";
 }
 
+/**
+ * Puts an event into the queue.
+ *
+ * The Privacy Gate runs first: a payload that carries a sensitive value is
+ * redacted (or dropped) here, in the browser. The event that is queued is
+ * therefore already safe to transmit.
+ */
 function enqueue(event: DynamicEvent) {
   if (!state.consented) return;
-  state.queue.push(event);
+
+  const inspected = inspectEvent(event as never, state.privacy);
+  if (!inspected.event) {
+    debug("blocked", event.type);
+    return;
+  }
+  if (inspected.blocked.length) {
+    debug("redacted", event.type, inspected.blocked.join(","));
+  }
+
+  state.queue.push(inspected.event as DynamicEvent);
   debug("queued", event.type, state.queue.length);
   if (state.queue.length >= state.options.maxBatch) void flush();
+}
+
+/** The counters of the Privacy Gate since the last call (counts only). */
+function privacyCounters(): PrivacyCounters | undefined {
+  const counters = readCounters();
+  const entries = Object.entries(counters).filter(([, value]) => (value ?? 0) > 0);
+  return entries.length ? (Object.fromEntries(entries) as PrivacyCounters) : undefined;
 }
 
 /** Send one batch. Retries are limited and only for transport errors. */
@@ -323,6 +411,8 @@ async function sendBatch(batch: DynamicEvent[], attempt = 0): Promise<void> {
   const payload = JSON.stringify({
     site: state.options.site || undefined,
     events: batch,
+    // Only counters: the gate never transmits a value it blocked.
+    privacy: privacyCounters(),
   });
 
   if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
@@ -375,6 +465,64 @@ export function flush(): Promise<void> {
   return state.pending;
 }
 
+/** The release that is live right now (null when the site has no marker). */
+function currentRelease(): string | undefined {
+  return state.release || undefined;
+}
+
+/**
+ * Marks a release.
+ *
+ * The version is stored locally (so the events that follow carry it) and a
+ * marker event is sent, which is the exact point in time the Change Radar
+ * compares against. No source code, no commit message, no secret is part of
+ * the marker - only a version string the developer chose.
+ *
+ * The marker is sent once per version and session: a snippet that calls
+ * `dynamic.release()` on every page view must not write a row per page view.
+ */
+export function release(version: string, deployedAt?: number): void {
+  if (!isBrowser) return;
+  const trimmed = String(version ?? "").trim();
+  if (!trimmed || !/^[A-Za-z0-9._+-]{1,64}$/.test(trimmed)) {
+    debug("invalid release version");
+    return;
+  }
+  const when = typeof deployedAt === "number" && Number.isFinite(deployedAt) ? deployedAt : Date.now();
+  state.release = trimmed;
+  try {
+    window.localStorage.setItem(RELEASE_KEY, trimmed);
+  } catch {
+    /* storage disabled — the marker still works for this page view */
+  }
+  if (!state.consented) return;
+  const session = sessionId();
+  if (!session) return;
+
+  // One marker per version and session.
+  const markedKey = `${RELEASE_KEY}:${trimmed}:${session}`;
+  if (readStorage(markedKey)) {
+    debug("release already marked", trimmed);
+    return;
+  }
+  writeStorage(markedKey, "1");
+
+  enqueue({
+    type: "release",
+    version: trimmed,
+    deployedAt: when,
+    ts: Date.now(),
+    session,
+    path: currentPath(),
+  });
+  debug("release", trimmed);
+}
+
+/** The release that is live right now (read only). */
+export function currentReleaseVersion(): string | null {
+  return state.release;
+}
+
 /** Send a pageview for the current path. */
 export function page(): void {
   if (!isBrowser || !state.consented) return;
@@ -391,6 +539,7 @@ export function page(): void {
     session,
     ref: hostOnly(document.referrer),
     utm,
+    release: currentRelease(),
   });
 }
 
@@ -407,7 +556,9 @@ export function track(
   }
   const session = sessionId();
   if (!session) return;
-  const clean = sanitizeProps(props);
+  // The properties are not filtered here: the Privacy Gate is the single
+  // place that decides what may leave the browser, and it counts what it
+  // removes. Filtering twice would hide the counters.
   enqueue({
     type: "event",
     name,
@@ -415,8 +566,68 @@ export function track(
     ts: Date.now(),
     session,
     value: typeof value === "number" && Number.isFinite(value) ? value : undefined,
-    props: clean,
+    props: props as Record<string, string | number | boolean> | undefined,
+    release: currentRelease(),
   });
+}
+
+/**
+ * Reports a JavaScript error.
+ *
+ * The message is redacted by the Privacy Gate before it is queued, so a
+ * stack that contains an e-mail address or a token never leaves the
+ * browser. The source is reduced to its host name.
+ */
+export function reportError(
+  message: string,
+  kind: "error" | "unhandledrejection" = "error",
+  source?: string,
+  line?: number,
+  column?: number,
+): void {
+  if (!isBrowser || !state.consented) return;
+  if (!state.privacy.captureErrors) return;
+  const session = sessionId();
+  if (!session) return;
+  const text = String(message ?? "").slice(0, 300);
+  if (!text) return;
+  enqueue({
+    type: "error",
+    message: text,
+    kind,
+    source: hostOnly(source),
+    line: typeof line === "number" && Number.isFinite(line) ? line : undefined,
+    column: typeof column === "number" && Number.isFinite(column) ? column : undefined,
+    path: currentPath(),
+    ts: Date.now(),
+    session,
+    release: currentRelease(),
+  });
+}
+
+/** Listens for uncaught errors and rejected promises. */
+function collectErrors(): void {
+  if (!isBrowser) return;
+  try {
+    window.addEventListener("error", (event) => {
+      const error = (event as ErrorEvent).error;
+      reportError(
+        error?.message ?? (event as ErrorEvent).message ?? "unknown error",
+        "error",
+        (event as ErrorEvent).filename,
+        (event as ErrorEvent).lineno,
+        (event as ErrorEvent).colno,
+      );
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+      const reason = (event as PromiseRejectionEvent).reason;
+      const message =
+        reason instanceof Error ? reason.message : String(reason ?? "unhandled rejection");
+      reportError(message, "unhandledrejection");
+    });
+  } catch (error) {
+    debug("error capture unavailable", error);
+  }
 }
 
 function collectVitals() {
@@ -437,6 +648,7 @@ function collectVitals() {
       path: currentPath(),
       ts: Date.now(),
       session,
+      release: currentRelease(),
     });
   };
 
@@ -476,6 +688,7 @@ function start() {
 
   if (state.options.autoPageview) page();
   if (state.options.vitals) collectVitals();
+  if (state.privacy.captureErrors) collectErrors();
   patchHistory();
 
   state.timer = window.setInterval(() => {
@@ -545,10 +758,40 @@ function resolveEndpoint(): string {
   return DEFAULT_ENDPOINT;
 }
 
+/** Read the release version from the script tag or the local storage. */
+function resolveRelease(): string | null {
+  if (isBrowser) {
+    const script = document.currentScript as HTMLScriptElement | null;
+    const fromTag = script?.getAttribute("data-release");
+    if (fromTag && fromTag.trim()) return fromTag.trim();
+    try {
+      const stored = window.localStorage.getItem(RELEASE_KEY);
+      if (stored && stored.trim()) return stored.trim();
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
+/** Read the privacy configuration from the script tag. */
+function resolvePrivacy(): Partial<PrivacyConfig> {
+  if (!isBrowser) return {};
+  const script = document.currentScript as HTMLScriptElement | null;
+  const raw = script?.getAttribute("data-privacy");
+  if (!raw) return {};
+  // "strict" | "balanced" | "off" — an unknown value keeps the default.
+  if (raw === "strict" || raw === "balanced" || raw === "off") {
+    return { mode: raw };
+  }
+  return {};
+}
+
 /** Initialize the SDK. Safe to call twice. */
 export function init(options: DynamicOptions = {}): void {
   if (!isBrowser) return;
   state.options = { ...state.options, ...options };
+  state.privacy = { ...DEFAULT_PRIVACY, ...state.options.privacy, ...resolvePrivacy() };
   if (!state.options.site) state.options.site = resolveSite();
   if (!state.options.endpoint) state.options.endpoint = resolveEndpoint();
 
@@ -573,6 +816,12 @@ export function init(options: DynamicOptions = {}): void {
     state.consented = true;
   }
 
+  // The release of the previous visit is kept, so the measurements of a
+  // session stay comparable even when the marker event was never sent.
+  const known = resolveRelease();
+  if (known) state.release = known;
+  if (state.options.release) state.release = state.options.release;
+
   start();
 }
 
@@ -585,7 +834,25 @@ export const dynamic = {
   consent,
   optOut,
   optIn,
-  version: "1.0.0",
+  release,
+  reportError,
+  privacy: {
+    /** The rules that are active in this browser. */
+    rules: () => ({
+      mode: state.privacy.mode,
+      redactQuery: state.privacy.redactQuery,
+      blockValues: state.privacy.blockValues,
+      captureErrors: state.privacy.captureErrors,
+    }),
+    /** The counters since the last read (counts only, never values). */
+    counters: readCounters,
+    /**
+     * A synthetic self test: fabricated values run through the gate, so the
+     * owner can see what would be blocked. Nothing is transmitted.
+     */
+    selfTest: () => selfTest(state.privacy),
+  },
+  version: "1.1.0",
 };
 
 if (isBrowser) {

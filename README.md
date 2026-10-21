@@ -261,6 +261,11 @@ isteği yok). Toplam **6.3 KB gzip**.
 | `dynamic.consent.grant()` / `.deny()` | Açık izin / opt-out. |
 | `dynamic.optIn()` / `dynamic.optOut()` | `consent` için kısa yol. |
 | `dynamic.consent.status()` | `granted` \| `denied` \| `unknown`. |
+| `dynamic.release(version, deployedAt?)` | Sürüm işareti (Değişim Radarı). |
+| `dynamic.reportError(message, kind?)` | JavaScript hatası (redakte edilmiş). |
+| `dynamic.privacy.selfTest()` | Uydurma değerlerle redaksiyon testi (ağ yok). |
+| `dynamic.privacy.rules()` | Etkin gizlilik kuralları. |
+| `dynamic.privacy.counters()` | Engellenen alan sayacı (değer değil). |
 
 Davranış:
 
@@ -274,10 +279,76 @@ Davranış:
 - **Kişisel veri yok:** form/input değeri veya tuş vuruşu okunmaz; event
   propları kişisel veri anahtarlarına karşı filtrelenir (e-posta, şifre, telefon,
   adres, token, kart, IP, koordinat …).
+- **Gizlilik Kapısı:** paket gönderilmeden önce tarayıcıda incelenir; şüpheli
+  değerler (e-posta, token, kart, telefon) engellenir, URL'lerdeki hassas sorgu
+  parametreleri silinir, yol içindeki token benzeri segmentler değiştirilir.
+  Sunucu aynı doğrulamayı bağımsız olarak yapar. Bkz. `docs/PRIVACY.md`.
 - **Çerez yok:** oturum id `sessionStorage`'da tutulur ve 30 dakika hareketsizlik
   sonrası yenilenir. `Do Not Track` açıksa izin verilene kadar toplama yapılmaz.
 
 Kaynak: `src/sdk/dynamic.ts` → `npm run build:sdk` → `public/js/dynamic.js`.
+
+---
+
+## İmza özellikleri
+
+Üç özellik aynı veri modelini paylaşır: `releases` (sürüm işaretleri),
+`events.release` (ölçümün ait olduğu sürüm) ve `insights` (bulgu + durum).
+Migration: `migrations/0006_signature_features.sql`.
+
+### 1. Değişim Radarı — sürüm çevresindeki değişimler
+
+Sürüm işaretini geliştirici işaretler:
+
+```js
+dynamic.release("2026.10.4");            // sürüm + zaman damgası
+dynamic.release("2026.10.4", deployTs);  // dağıtım zamanı belli
+```
+
+İşaretçi SDK'nın `localStorage`'ında saklanır, sonraki event'ler
+`release` alanıyla etiketlenir; marker event'i ayrıca `releases` tablosuna
+yazılır (aynı sürüm yalnızca bir kez saklanır).
+
+- `GET /api/projects/:id/releases` — işaretçiler
+- `POST /api/projects/:id/releases` — elle işaretleme
+- `GET /api/projects/:id/radar?window=24h&release=<id>` — karşılaştırma
+
+Karşılaştırma kuralı açıktır ve test edilebilir: her iki pencerede de en az
+**20 ölçüm** yoksa sonuç `insufficient_data` olur (küçük örneklemde asla
+regresyon ilan edilmez). Eşikler metrik başına tanımlıdır (LCP ±200 ms/±%20,
+INP ±100 ms/±%25, CLS ±0.05/±%25, FCP ±150 ms/±%20, TTFB ±150 ms/±%25).
+Segmentler (sayfa, cihaz, tarayıcı) yalnızca iki tarafta da ölçülebilir
+olduğunda gösterilir.
+
+**Nedensellik iddiası yoktur:** radar yalnızca "sürüm işaretinin çevresinde
+sayılar değişti" der; aynı anda yapılmış başka değişiklikler de etkili
+olabilir.
+
+### 2. Gizlilik Kapısı — veri tarayıcıdan çıkmadan önce
+
+- `GET /api/projects/:id/privacy` — etkin kurallar, engellenen alan
+  sayacı (kategori bazlı, yalnızca sayı)
+- `POST /api/projects/:id/privacy/test` — uydurma değerlerle test
+
+Engellenen kategoriler: `email`, `token`, `creditcard`, `phone`,
+`nationalid`, `urlquery`, `formvalue`. Kural listesi `src/lib/privacy-rules.ts`
+içinde tek yerde durur; SDK ve Worker aynı dosyayı kullanır.
+
+Sayaclar paketin `privacy` alanında gider — **değerler hiçbir zaman gönderilmez**.
+
+### 3. Fix-to-Proof — bulgudan düzeltmeye, kanıtla
+
+- `GET /api/projects/:id/insights?range=24h` — öneriler (kanıt, örneklem,
+  dönem, yönergeler)
+- `PATCH /api/projects/:id/insights/:fingerprint` — durum: `open` /
+  `investigating` / `fixed` / `dismissed` + `releaseId` (düzeltmenin
+  ilişkilendirildiği sürüm)
+
+Öneriler yalnızca ölçülen veriden türetilir (deterministik kurallar, model
+yok). Bir düzeltme "fixed" işaretlendiğinde ve bir sürüme bağlandığında, o
+sürümün 24 saati öncesi/sonrası karşılaştırılır ve sonuç
+`improved` / `regressed` / `inconclusive` / `insufficient_data` olarak
+gerekçesiyle raporlanır. Düğmeye basmak hiçbir şeyi kanıtlamaz.
 
 ---
 

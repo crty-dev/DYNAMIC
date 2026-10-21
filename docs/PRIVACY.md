@@ -40,6 +40,44 @@ kesin konum, cihaz parmak izi, çapraz site kimliği.
 - **Oturum id:** rastgele üretilir, çerez değildir, `sessionStorage`'da 30
   dakika hareketsizlik sonrası yenilenir ve sayfayla birlikte silinir.
 
+### 2.1 Gizlilik Kapısı (Privacy Gate)
+
+Filtreleme yalnızca "alan adı" kontrolüyle sınırlı değildir. Her paket
+gönderilmeden önce tarayıcıda **iki kez** incelenir:
+
+1. **Anahtar adı:** e-posta, parola, token, api anahtarı, kart, cvv, iban,
+   telefon, ad, adres, koordinat, form değeri gibi alanlar hiçbir zaman
+   toplanmaz.
+2. **Değer biçimi:** alan adı masum görünse bile değer şüpheliyse engellenir —
+   e-posta deseni, JWT, 24+ karakterlik hex, 32+ karakterlik base64url, sağlayıcı
+   anahtar önekleri (`sk-`, `ghp_`, `xoxb-` …), "bearer/token/secret=…" kalıpları,
+   Luhn kontrolünden geçen 13–19 haneli kart numaraları, 11 haneli T.C. kimlik
+   numarası ve telefon numarası.
+3. **URL'ler:** `token`, `code`, `sig`, `session`, `email`, `apikey` gibi hassas
+   sorgu parametreleri silinir; parametre adı masum olsa bile değeri şüpheliyse
+   yine silinir.
+4. **Yol segmentleri:** `/reset/eyJhbGciOi…` gibi token taşıyan segmentler
+   `[redacted]` ile değiştirilir.
+5. **Hata mesajları:** yığın izinde geçen e-posta/token kalıpları da aynı
+   kurallardan geçer, mesaj `[redacted]` olur.
+
+**Engellenenler sayılır, değerleri gönderilmez.** Paketin `privacy` alanı
+yalnızca kategori bazlı sayaçtır (`{"email":3,"token":1}`). Sunucu, gelen paketi
+istemciden bağımsız olarak yeniden doğrular; istemci tarafındaki filtre bir
+kolaylık, sunucudaki doğrulama güvencedir.
+
+**Yanlış pozitifler ve sınırlar:**
+
+- Uzun hex/base64 benzeri bir "ürün kodu" veya bir build hash'i token sanılıp
+  engellenebilir. Bu durumda ilgili alan düşer; ölçüm eksik kalır ama veri
+  sızmaz.
+- Serbest metin alanlarda gömülü kişisel veri (örn. "siparişim jane@x.com
+  adına") yalnızca yukarıdaki desenlere uyduğu kadar yakalanır.
+- **Garanti değildir:** DYNAMIC her türlü kişisel veriyi tespit ettiğini
+  iddia etmez. Bilinmeyen bir biçimde taşınan veri geçebilir. Bu belge
+  hukuki uyumluluk beyanı değildir.
+
+
 ## 3. Hukuki dayanak (KVKK 5/1)
 
 Varsayılan işleme **meşru menfaat** (KVKK md. 5/1-e) ve **sözleşmenin

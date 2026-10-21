@@ -7,6 +7,28 @@ import { config, type AppEnv } from "./env";
 import { rateLimit } from "./rate-limit";
 import { siteByKey, siteByOrigin } from "./sites";
 import { goalsFor } from "./goals";
+import {
+  errorCounts,
+  listInsights,
+  listReleases,
+  metricSamples,
+  metricTimeline,
+  plainSamples,
+  privacyCounters,
+  releaseById,
+  updateInsightState,
+  upsertInsight,
+  upsertRelease,
+} from "./signature";
+import {
+  compareErrorRate,
+  compareMetric,
+  segmentationScopes,
+  MIN_WINDOW_SAMPLES,
+  type Comparison,
+} from "./release-rules";
+import { assessFix, evaluateIssues, percentileOf, type VitalReading } from "./insight-rules";
+import { classifyValue, isSensitiveKey, redactUrl, GATE_RULES } from "../src/lib/privacy-rules";
 
 /** A goal path: the path only, without the query string. */
 function cleanGoalPath(value: string): string {
@@ -427,10 +449,484 @@ export function createProjectsApp(): Hono<AppEnv> {
     });
   });
 
+  /* ================================================================ releases
+     Change Radar: the release markers of a site and the comparison of the
+     measurements around them.
+     ==================================================================== */
+
+  /** The windows the radar can compare. */
+  const RADAR_WINDOWS: Record<string, { ms: number; label: string }> = {
+    "1h": { ms: 3600_000, label: "1 saat" },
+    "6h": { ms: 6 * 3600_000, label: "6 saat" },
+    "24h": { ms: 24 * 3600_000, label: "24 saat" },
+    "7d": { ms: 7 * 86400_000, label: "7 gün" },
+  };
+
+  const releaseSchema = z.object({
+    version: z
+      .string()
+      .min(1)
+      .max(64)
+      .regex(/^[A-Za-z0-9._+-]+$/, "Sadece harf, rakam, ., _, + ve - kullanın"),
+    deployedAt: z.number().int().positive().optional(),
+  });
+
+  /** Resolves the site of a project — every data query is scoped by it. */
+  async function siteOfProject(c: Context<AppEnv>, publicId: string) {
+    const site = await siteByKey(c.env.DB, publicId);
+    return site ?? null;
+  }
+
+  app.get("/:id/releases", async (c) => {
+    const found = await ownedProject(c, c.req.param("id"));
+    if ("error" in found) {
+      return c.json({ error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
+        found.error === "unauthorized" ? 401 : 404);
+    }
+    const site = await siteOfProject(c, found.project.public_id);
+    if (!site) return c.json({ ok: true, releases: [] });
+    const releases = await listReleases(c.env.DB, site.id);
+    return c.json({
+      ok: true,
+      releases: releases.map((release) => ({
+        id: release.id,
+        version: release.version,
+        deployedAt: release.deployed_at,
+        firstSeenAt: release.created_at,
+        source: release.source,
+      })),
+    });
+  });
+
+  /** A release marker that is set by hand (the SDK sends its own). */
+  app.post("/:id/releases", async (c) => {
+    const found = await ownedProject(c, c.req.param("id"));
+    if ("error" in found) {
+      return c.json({ error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
+        found.error === "unauthorized" ? 401 : 404);
+    }
+    const body = await c.req.json().catch(() => null);
+    const parsed = releaseSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: "invalid_payload", issues: parsed.error.issues.map((i) => i.message) }, 400);
+    }
+    const site = await siteOfProject(c, found.project.public_id);
+    if (!site) return c.json({ error: "site_not_found" }, 404);
+
+    const now = Date.now();
+    const deployedAt = parsed.data.deployedAt ?? now;
+    const release = await upsertRelease(
+      c.env.DB,
+      site.id,
+      parsed.data.version,
+      Math.min(deployedAt, now + 3600_000),
+      "manual",
+    );
+    return c.json(
+      {
+        ok: true,
+        release: {
+          id: release.id,
+          version: release.version,
+          deployedAt: release.deployed_at,
+          firstSeenAt: release.created_at,
+          source: release.source,
+        },
+      },
+      201,
+    );
+  });
+
+  /**
+   * The Change Radar: the release markers, the metrics before and after a
+   * release and the changes that were detected.
+   */
+  app.get("/:id/radar", async (c) => {
+    const found = await ownedProject(c, c.req.param("id"));
+    if ("error" in found) {
+      return c.json({ error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
+        found.error === "unauthorized" ? 401 : 404);
+    }
+    const site = await siteOfProject(c, found.project.public_id);
+    if (!site) {
+      return c.json({ ok: true, release: null, metrics: [], segments: [], errors: null, timeline: [] });
+    }
+
+    const windowKey = c.req.query("window") ?? "24h";
+    const windowMs = RADAR_WINDOWS[windowKey]?.ms ?? RADAR_WINDOWS["24h"]!.ms;
+    const windowLabel = RADAR_WINDOWS[windowKey]?.label ?? "24 saat";
+
+    const releases = await listReleases(c.env.DB, site.id);
+    const requested = c.req.query("release");
+    const release = requested
+      ? releases.find((item) => String(item.id) === requested)
+      : releases[0];
+    if (!release) {
+      return c.json({
+        ok: true,
+        release: null,
+        releases: [],
+        metrics: [],
+        segments: [],
+        errors: null,
+        timeline: [],
+        empty: true,
+        message:
+          "Henüz bir sürüm işareti yok. Uygulamanızda dynamic.release('sürüm') çağırın veya buradan elle işaretleyin.",
+      });
+    }
+
+    const releaseTs = release.deployed_at;
+    const from = releaseTs - windowMs;
+    const to = releaseTs + windowMs;
+
+    const metricNames = ["LCP", "INP", "CLS", "FCP", "TTFB"];
+    const samples = new Map<string, Awaited<ReturnType<typeof metricSamples>>>();
+    for (const metric of metricNames) {
+      samples.set(metric, await metricSamples(c.env.DB, site.id, metric, from, to));
+    }
+
+    const metrics: Comparison[] = metricNames.map((metric) =>
+      compareMetric(metric, samples.get(metric) ?? [], releaseTs, windowMs),
+    );
+
+    // The dimensions are only shown when they are measurable on both sides.
+    const segments: { scope: string; metrics: Comparison[] }[] = [];
+    const allSamples = metricNames.flatMap((metric) => samples.get(metric) ?? []);
+    for (const scope of segmentationScopes(allSamples, releaseTs, windowMs)) {
+      if (scope.scope === "all") continue;
+      const scoped: Comparison[] = [];
+      for (const metric of metricNames) {
+        const metricSamplesForScope = (samples.get(metric) ?? []).filter(scope.filter);
+        const comparison = compareMetric(
+          metric,
+          metricSamplesForScope,
+          releaseTs,
+          windowMs,
+          scope.scope,
+        );
+        if (comparison.verdict !== "insufficient_data" || comparison.before.samples > 0) {
+          scoped.push(comparison);
+        }
+      }
+      if (scoped.length) segments.push({ scope: scope.scope, metrics: scoped });
+    }
+
+    const beforeErrors = await errorCounts(c.env.DB, site.id, from, releaseTs);
+    const afterErrors = await errorCounts(c.env.DB, site.id, releaseTs, to);
+    const errors = compareErrorRate(beforeErrors, afterErrors);
+
+    const bucketMs = windowMs <= 6 * 3600_000 ? 3600_000 : 86400_000;
+    const timeline = {
+      bucketMs,
+      metrics: Object.fromEntries(
+        await Promise.all(
+          metricNames.map(async (metric) => [
+            metric,
+            await metricTimeline(c.env.DB, site.id, metric, from, to, bucketMs),
+          ]),
+        ),
+      ),
+    };
+
+    return c.json({
+      ok: true,
+      release: {
+        id: release.id,
+        version: release.version,
+        deployedAt: release.deployed_at,
+        firstSeenAt: release.created_at,
+        source: release.source,
+      },
+      releases: releases.map((item) => ({
+        id: item.id,
+        version: item.version,
+        deployedAt: item.deployed_at,
+        source: item.source,
+      })),
+      window: windowKey,
+      windowLabel,
+      windowMs,
+      minSamples: MIN_WINDOW_SAMPLES,
+      metrics,
+      segments,
+      errors,
+      timeline,
+      // A correlation is not a causation: the radar only says "the numbers
+      // changed around this release", never "the release caused it".
+      note: "Sürüm işareti ile ölçümler arasındaki ilişki nedensellik kanıtı değildir; eşzamanlı başka değişiklikler de etkili olabilir.",
+    });
+  });
+
+  /* =========================================================== fix-to-proof */
+
+  const insightStateSchema = z.object({
+    status: z.enum(["open", "investigating", "fixed", "dismissed"]),
+    releaseId: z.number().int().positive().nullable().optional(),
+  });
+
+  /**
+   * The recommendations of a site.
+   *
+   * The list is recomputed from the measurements on every call and merged
+   * with the stored state, so an issue the owner dismissed does not come
+   * back, and a new measurement updates the evidence.
+   */
+  app.get("/:id/insights", async (c) => {
+    const found = await ownedProject(c, c.req.param("id"));
+    if ("error" in found) {
+      return c.json({ error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
+        found.error === "unauthorized" ? 401 : 404);
+    }
+    const site = await siteOfProject(c, found.project.public_id);
+    if (!site) {
+      return c.json({ ok: true, issues: [], period: "7d", empty: true });
+    }
+
+    const range = resolveRange(c.req.query("range"));
+    const { windowMs } = { windowMs: range === "24h" ? 86400_000 : range === "90d" ? 90 * 86400_000 : 7 * 86400_000 };
+    const now = Date.now();
+    const from = now - windowMs;
+    const previousFrom = from - windowMs;
+
+    const metricNames = ["LCP", "INP", "CLS", "FCP", "TTFB"];
+    const vitals: VitalReading[] = [];
+    for (const metric of metricNames) {
+      const current = await plainSamples(c.env.DB, site.id, metric, from, now);
+      const values = current.map((sample) => sample.value);
+      const sufficient = values.length >= 20;
+      vitals.push({
+        metric,
+        samples: values.length,
+        p75: sufficient ? percentileOf(values) : null,
+        p50: sufficient ? percentileOf(values, 0.5) : null,
+        avg: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null,
+        sufficient,
+      });
+    }
+
+    const currentErrors = await errorCounts(c.env.DB, site.id, from, now);
+    const previousErrors = await errorCounts(c.env.DB, site.id, previousFrom, from);
+    const currentRate = currentErrors.total ? currentErrors.errors / currentErrors.total : 0;
+    const previousRate = previousErrors.total ? previousErrors.errors / previousErrors.total : 0;
+
+    const issues = evaluateIssues({
+      vitals,
+      errors: {
+        errors: currentErrors.errors,
+        total: currentErrors.total,
+        rate: currentRate,
+        previousRate,
+      },
+      period: range,
+    });
+
+    // The state of an issue survives a new measurement.
+    const stored = await listInsights(c.env.DB, site.id);
+    const storedByFingerprint = new Map(stored.map((row) => [row.fingerprint, row]));
+    for (const issue of issues) {
+      await upsertInsight(
+        c.env.DB,
+        site.id,
+        {
+          fingerprint: issue.fingerprint,
+          kind: issue.kind,
+          scope: issue.scope,
+          title: issue.title,
+          severity: issue.severity,
+          evidence: JSON.stringify({ ...issue, period: range }),
+        },
+        now,
+      );
+    }
+
+    const releases = await listReleases(c.env.DB, site.id);
+    const releasesById = new Map(releases.map((row) => [row.id, row]));
+
+    const payload = await Promise.all(issues.map(async (issue) => {
+      const row = storedByFingerprint.get(issue.fingerprint);
+      const status = row?.status ?? "open";
+      const releaseId = row?.release_id ?? null;
+      const release = releaseId ? releasesById.get(releaseId) ?? null : null;
+
+      // A fix that is linked to a release is compared with the data around it.
+      let assessment = null;
+      if (release && status === "fixed") {
+        const metric = issue.kind.toUpperCase();
+        const before = await plainSamples(
+          c.env.DB,
+          site.id,
+          metric,
+          release.deployed_at - 86400_000,
+          release.deployed_at,
+        );
+        const after = await plainSamples(
+          c.env.DB,
+          site.id,
+          metric,
+          release.deployed_at,
+          release.deployed_at + 86400_000,
+        );
+        assessment = assessFix(before, after);
+      }
+
+      return {
+        ...issue,
+        status,
+        releaseId,
+        releaseVersion: release?.version ?? null,
+        firstSeenAt: row?.first_seen_at ?? now,
+        lastSeenAt: row?.last_seen_at ?? now,
+        assessment,
+      };
+    }));
+
+    // The issues the owner dismissed are kept, but they are not repeated as
+    // new findings.
+    const dismissed = stored
+      .filter((row) => row.status === "dismissed" || row.status === "investigating")
+      .filter((row) => !payload.some((issue) => issue.fingerprint === row.fingerprint))
+      .map((row) => ({
+        fingerprint: row.fingerprint,
+        kind: row.kind,
+        scope: row.scope,
+        title: row.title,
+        severity: row.severity,
+        status: row.status,
+        releaseId: row.release_id,
+        firstSeenAt: row.first_seen_at,
+        lastSeenAt: row.last_seen_at,
+        assessment: null,
+      }));
+
+    return c.json({
+      ok: true,
+      period: range,
+      issues: [...payload, ...dismissed],
+      empty: payload.length === 0 && dismissed.length === 0,
+      minSamples: 20,
+      note: "Öneriler ölçülen verilerden türetilir; hiçbir öneri sitenizin kodunu değiştirmez.",
+    });
+  });
+
+  /** The owner marks an issue: under investigation, fixed or dismissed. */
+  app.patch("/:id/insights/:fingerprint", async (c) => {
+    const found = await ownedProject(c, c.req.param("id"));
+    if ("error" in found) {
+      return c.json({ error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
+        found.error === "unauthorized" ? 401 : 404);
+    }
+    const body = await c.req.json().catch(() => null);
+    const parsed = insightStateSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: "invalid_payload", issues: parsed.error.issues.map((i) => i.message) }, 400);
+    }
+    const site = await siteOfProject(c, found.project.public_id);
+    if (!site) return c.json({ error: "site_not_found" }, 404);
+
+    let releaseId: number | null = null;
+    if (parsed.data.releaseId) {
+      const release = await releaseById(c.env.DB, site.id, parsed.data.releaseId);
+      if (!release) return c.json({ error: "release_not_found" }, 404);
+      releaseId = release.id;
+    }
+
+    const changed = await updateInsightState(
+      c.env.DB,
+      site.id,
+      c.req.param("fingerprint"),
+      parsed.data.status,
+      releaseId,
+      Date.now(),
+    );
+    if (!changed) return c.json({ error: "not_found" }, 404);
+    return c.json({ ok: true, status: parsed.data.status, releaseId });
+  });
+
+  /* =========================================================== privacy gate */
+
+  /** What the Privacy Gate blocked, the rules and the configuration state. */
+  app.get("/:id/privacy", async (c) => {
+    const found = await ownedProject(c, c.req.param("id"));
+    if ("error" in found) {
+      return c.json({ error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
+        found.error === "unauthorized" ? 401 : 404);
+    }
+    const site = await siteOfProject(c, found.project.public_id);
+    if (!site) {
+      return c.json({ ok: true, counters: [], rules: GATE_RULES, total: 0 });
+    }
+    const counters = await privacyCounters(c.env.DB, site.id);
+    const total = counters.reduce((sum, row) => sum + (row.count ?? 0), 0);
+    return c.json({
+      ok: true,
+      rules: GATE_RULES,
+      counters: counters.map((row) => ({
+        category: row.category,
+        count: row.count,
+        updatedAt: row.updated_at,
+      })),
+      total,
+      // The server validates every payload again, independent of the SDK.
+      serverSide: true,
+      note: "Değerler hiçbir zaman sunucuya gönderilmez; yalnızca kaç adet engellendiği sayılır.",
+    });
+  });
+
+  /**
+   * A synthetic test of the server side validation.
+   *
+   * The values are fabricated, they are never stored, and the answer says
+   * what would happen with them. This is the test the owner can run to see
+   * whether the rules behave as documented.
+   */
+  app.post("/:id/privacy/test", async (c) => {
+    const found = await ownedProject(c, c.req.param("id"));
+    if ("error" in found) {
+      return c.json({ error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
+        found.error === "unauthorized" ? 401 : 404);
+    }
+    const cases: { label: string; props: Record<string, unknown> }[] = [
+      { label: "e-posta değeri", props: { mail: "jane@example.com" } },
+      { label: "bearer token", props: { auth: "Bearer abcdefghijklmnopqrst" } },
+      { label: "uzun hex", props: { ref: "9f8e7d6c5b4a39281706f5e4d3c2b1a0" } },
+      { label: "kredi kartı", props: { card: "4242 4242 4242 4242" } },
+      { label: "sorgu parametresi", props: { to: "https://site.com/x?token=secretvalue" } },
+      { label: "parola alanı", props: { password: "hunter2" } },
+      { label: "güvenli sayaç", props: { items: 3, currency: "TRY" } },
+    ];
+
+    const samples = cases.map((item) => {
+      const blockedByKey = Object.keys(item.props).filter((key) => isSensitiveKey(key));
+      const blockedByValue = Object.entries(item.props)
+        .filter(([key, value]) => !isSensitiveKey(key) && typeof value === "string" && classifyValue(value))
+        .map(([key]) => key);
+      const redactedUrl = Object.entries(item.props).find(
+        ([, value]) => typeof value === "string" && value.startsWith("http"),
+      );
+      return {
+        label: item.label,
+        blocked: blockedByKey.length > 0 || blockedByValue.length > 0,
+        blockedByKey,
+        blockedByValue,
+        redactedUrl: redactedUrl
+          ? { url: redactUrl(redactedUrl[1] as string).url, fields: redactUrl(redactedUrl[1] as string).redacted }
+          : null,
+      };
+    });
+
+    return c.json({
+      ok: true,
+      total: samples.length,
+      blocked: samples.filter((sample) => sample.blocked).length,
+      samples,
+      note: "Bu değerler uydurmadır; hiçbir yere gönderilmez ve saklanmaz.",
+    });
+  });
+
   /* ---------------------------------------------------------------- stats */
 
-  app.get("/:id/stats", async (c) => {
-    const found = await ownedProject(c, c.req.param("id"));
+  app.get("/:id/stats", async (c) => {    const found = await ownedProject(c, c.req.param("id"));
     if ("error" in found) {
       return found.error === "unauthorized"
         ? c.json({ error: "unauthorized" }, 401)
