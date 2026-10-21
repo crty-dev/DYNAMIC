@@ -64,12 +64,21 @@ function errorMessage(error: unknown): string {
 export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const providers = useSocialProviders();
+
+  // A failed social sign in comes back with ?failed=social, the global error
+  // redirect with ?error=<code>. Neither is shown raw.
+  const flowError = searchParams.get("failed")
+    ? "Sosyal giriş tamamlanamadı. Onay ekranını kapatmış olabilirsiniz ya da sağlayıcı erişimi reddetti. E-posta ile devam edebilirsiniz."
+    : searchParams.get("error")
+      ? "Giriş tamamlanamadı. Lütfen tekrar deneyin ya da e-posta ile devam edin."
+      : null;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -102,6 +111,7 @@ export function Login() {
         </div>
         <SocialButtons providers={providers} onError={setError} />
         <form className="card" onSubmit={submit}>
+          {flowError ? <p className="alert alert--error">{flowError}</p> : null}
           {error ? <p className="alert alert--error">{error}</p> : null}
           <TextField
             label="E-posta"
@@ -149,6 +159,7 @@ export function Login() {
 
 export function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -156,6 +167,12 @@ export function Register() {
   const [busy, setBusy] = useState(false);
   const providers = useSocialProviders();
   const [mailEnabled, setMailEnabled] = useState(true);
+
+  const flowError = searchParams.get("failed")
+    ? "Sosyal giriş tamamlanamadı. E-posta ile kayıt olmayı deneyebilirsiniz."
+    : searchParams.get("error")
+      ? "Kayıt tamamlanamadı. Lütfen tekrar deneyin."
+      : null;
 
   useEffect(() => {
     let alive = true;
@@ -207,6 +224,7 @@ export function Register() {
         )}
         <SocialButtons providers={providers} onError={setError} />
         <form className="card" onSubmit={submit}>
+          {flowError ? <p className="alert alert--error">{flowError}</p> : null}
           {error ? <p className="alert alert--error">{error}</p> : null}
           <TextField
             label="Ad"

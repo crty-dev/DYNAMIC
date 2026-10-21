@@ -191,6 +191,9 @@ export function SocialButtons({
     const { error } = await authClient.signIn.social({
       provider,
       callbackURL: `${APP_BASE_PATH}/`,
+      // A failed flow (cancelled consent, denied scope) comes back to the
+      // login page with a readable message instead of the raw error page.
+      errorCallbackURL: `${APP_BASE_PATH}/login?failed=social`,
     });
     if (error) onError("Sosyal giriş başlatılamadı. Lütfen tekrar deneyin.");
   };

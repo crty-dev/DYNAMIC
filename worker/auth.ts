@@ -84,6 +84,30 @@ export async function promoteAdmin(env: Bindings, userId: string): Promise<void>
  * Exported so the tests can assert the security relevant options (IP header,
  * joins, trusted origins) without starting a Worker.
  */
+/**
+ * Where the authentication errors end up.
+ *
+ * Better Auth sends OAuth failures (a cancelled consent screen, a denied
+ * scope, a broken callback) to its own `/api/auth/error` page, which is a
+ * development page and shows a raw error code. The console has a login page
+ * that explains the problem in Turkish instead.
+ *
+ * The console lives on its own origin or, when it shares the marketing
+ * origin, under /app - the URL follows that.
+ */
+function authErrorUrl(env: Bindings): string {
+  const { appUrl, authBaseUrl } = config(env);
+  try {
+    const appOrigin = new URL(appUrl).origin;
+    const authOrigin = new URL(authBaseUrl).origin;
+    return appOrigin === authOrigin
+      ? `${authOrigin}/app/login`
+      : `${appOrigin}/login`;
+  } catch {
+    return `${authBaseUrl}/app/login`;
+  }
+}
+
 export function buildAuthOptions(env: Bindings): BetterAuthOptions {
   const { appUrl, authBaseUrl, authSecret, turnstile, ipAddress, mail, isDev } = config(env);
   const infraApiKey = env.BETTER_AUTH_API_KEY ?? "";
@@ -216,6 +240,13 @@ export function buildAuthOptions(env: Bindings): BetterAuthOptions {
       "http://127.0.0.1:5174",
     ],
     ...(Object.keys(socialProviders).length > 0 ? { socialProviders } : {}),
+    onAPIError: {
+      // No raw error page in production: the console explains the failure.
+      errorURL: authErrorUrl(env),
+      onError: (error) => {
+        console.error("[auth] api error", error);
+      },
+    },
     rateLimit: {
       enabled: true,
       window: 60,

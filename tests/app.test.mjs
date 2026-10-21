@@ -208,6 +208,17 @@ describe("DYNAMIC application API", () => {
     assert.equal(signInResult.payload.code, "EMAIL_NOT_VERIFIED");
   });
 
+  it("sends the auth errors to the console instead of the default page", async () => {
+    const response = await fetch(`${BASE}/api/auth/error?error=oauth_error&error_description=denied`, {
+      redirect: "manual",
+    });
+    assert.equal(response.status, 302);
+    const location = response.headers.get("location") ?? "";
+    // The console login page, with the error code appended.
+    assert.match(location, /\/login\?/);
+    assert.match(location, /error=oauth_error/);
+  });
+
   it("reports whether the deployment can send mail", async () => {
     const result = await api("/api/auth/mail-status");
     assert.equal(result.status, 200);
