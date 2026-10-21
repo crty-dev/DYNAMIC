@@ -11,7 +11,7 @@ import TypewriterCode from "./TypewriterCode";
 import HalftoneWordmarkFooter from "../components/ui/halftone-wordmark-footer";
 import DataRain from "../components/ui/data-rain";
 import CloudinaryImage from "../components/ui/cloudinary-image";
-import { SupportLauncher } from "../components/ui/support-launcher";
+import { SupportChat } from "../components/ui/support-chat";
 import { Hero } from "../components/ui/tailwind-css-background-snippet";
 import { CLOUDINARY_ASSETS, type CloudinaryAssetKey } from "../lib/cloudinary";
 import { APP_URL } from "../lib/app-url";
@@ -374,7 +374,7 @@ export default function LandingPage() {
       {/* -------------------------------- footer ---------------------------- */}
       <HalftoneWordmarkFooter
         className="footer-halftone"
-        wordmark="dynamic"
+        wordmark={compact ? "" : "dynamic"}
         label="DYNAMIC"
         meta="©2026 · Open source under MIT · Built on Cloudflare Workers"
         columns={FOOTER_COLUMNS}
@@ -387,11 +387,11 @@ export default function LandingPage() {
         fontFamily='"Montserrat", "Helvetica Neue", Arial, sans-serif'
         fontWeight={700}
         monoFamily='"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace'
-        height={compact ? "340px" : "480px"}
+        height={compact ? "auto" : "480px"}
       />
 
-      {/* Live chat: the Crisp script is only fetched when it is used. */}
-      <SupportLauncher />
+      {/* Live chat: a desktop only, it opens by itself. */}
+      <SupportChat />
     </div>
   );
 }

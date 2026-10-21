@@ -215,6 +215,8 @@ export default function HalftoneWordmarkFooter({
   const colors = { ...(PRESETS[preset] || PRESETS.night), ...palette };
   const rootRef = React.useRef(null as HTMLElement | null);
   const canvasRef = React.useRef(null as HTMLCanvasElement | null);
+  const topRef = React.useRef(null as HTMLDivElement | null);
+  const ruleRef = React.useRef(null as HTMLDivElement | null);
   const opts = React.useRef({ colors, dotGap, radius, crop, grain, interactive, fontFamily, fontWeight, wordmark });
   opts.current = { colors, dotGap, radius, crop, grain, interactive, fontFamily, fontWeight, wordmark };
   const key = [wordmark, dotGap, crop, grain, fontFamily, fontWeight, colors.background, colors.ink, colors.warm].join("|");
@@ -261,7 +263,17 @@ export default function HalftoneWordmarkFooter({
       const face = o.fontWeight + " 100px " + o.fontFamily;
       m.font = face;
       const word = o.wordmark || " ";
-      const fit = hwfFitSize(m.measureText(word).width, w * 1.02);
+      // The word fills the width, but it may only use the band that is left
+      // under the links: otherwise the letters run into the link columns
+      // (that was the case on a narrow screen).
+      const linksHeight = topRef.current?.getBoundingClientRect().height ?? 0;
+      const ruleHeight = ruleRef.current?.getBoundingClientRect().height ?? 0;
+      const band = Math.max(56, h - linksHeight - ruleHeight - 12);
+      const widthFit = hwfFitSize(m.measureText(word).width, w * 1.02);
+      // The word is cropped at the bottom (crop), so it needs more room than
+      // its visible cap height.
+      const heightFit = band / (0.82 + Math.max(0, Math.min(0.6, o.crop)) * 0.82);
+      const fit = Math.min(widthFit, heightFit);
       m.font = o.fontWeight + " " + fit + "px " + o.fontFamily;
       const box = m.measureText(word);
       const cap = box.actualBoundingBoxAscent || fit * 0.72;
@@ -484,7 +496,7 @@ export default function HalftoneWordmarkFooter({
       <style>{HWF_CSS}</style>
       <canvas ref={canvasRef} aria-hidden="true" />
       <span className="hwf-sr">{wordmark}</span>
-      <div className="hwf-top">
+      <div className="hwf-top" ref={topRef}>
         <div className="hwf-brand">
           <strong>{label}</strong>
           <span>{meta}</span>
@@ -508,7 +520,7 @@ export default function HalftoneWordmarkFooter({
           </nav>
         ))}
       </div>
-      <div className="hwf-rule">
+      <div className="hwf-rule" ref={ruleRef}>
         {backToTop ? (
           <button type="button" className="hwf-up" onClick={toTop}>
             Back to top ↑

@@ -49,7 +49,7 @@ export default function TechStackBeam() {
   const beam = {
     containerRef,
     toRef: centerRef,
-    pathColor: "rgba(35, 216, 202, 0.62)",
+    pathColor: "rgba(35, 216, 202, 0.78)",
     pathWidth: 2,
     pathOpacity: 0.3,
     gradientStartColor: "#23d8ca",
