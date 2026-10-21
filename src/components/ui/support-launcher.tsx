@@ -1,35 +1,43 @@
 import { useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
-import { openSupportChat, isCrispEager } from "../../lib/crisp";
+import { openSupportChat, autoStartSupportChat, isCrispEager } from "../../lib/crisp";
 
 /**
- * The live chat launcher of the marketing site.
+ * The live chat of the marketing site.
  *
- * The Crisp script is a third party script: it is only fetched when the
- * visitor asks for support, so a visitor that never clicks stays free of
- * third party cookies and requests. Set VITE_CRISP_EAGER=1 to load it on
- * every page view instead (the classic snippet behaviour).
+ * On a desktop the Crisp widget is loaded with the page and opens by itself
+ * (its own bubble in the corner is the launcher). On a phone the chat panel
+ * would cover the whole screen, so the visitor gets a button and the script
+ * is only fetched when it is tapped.
  */
+const DESKTOP = "(min-width: 768px)";
+
 export function SupportLauncher() {
-  const [ready, setReady] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
-    if (!isCrispEager()) return;
-    // Eager mode: the widget is expected to be on the page from the start.
-    openSupportChat({ open: false });
-    setReady(true);
+    const query = window.matchMedia(DESKTOP);
+
+    const apply = () => {
+      setIsDesktop(query.matches);
+      // The chat opens by itself on a desktop, unless it was turned off.
+      if (query.matches && isCrispEager()) autoStartSupportChat();
+    };
+
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
   }, []);
+
+  // On a desktop the Crisp bubble is the launcher.
+  if (isDesktop) return null;
 
   return (
     <button
       type="button"
       className="support-launcher"
-      onClick={() => {
-        openSupportChat();
-        setReady(true);
-      }}
+      onClick={() => openSupportChat()}
       aria-label="Canlı destek sohbetini aç"
-      data-ready={ready ? "true" : undefined}
     >
       <MessageCircle size={18} aria-hidden />
       <span>Destek</span>

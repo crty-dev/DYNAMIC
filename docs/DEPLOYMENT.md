@@ -445,16 +445,25 @@ Pazarlama sitesinde, sağ alt köşedeki **Destek** düğmesi canlı sohbeti aç
 Crisp'in website id'si `4280acc8-3c15-4051-a42b-dfb5842104d4` (public, kod
 içinde `src/lib/crisp.ts`).
 
-**Tasarım kararı — gizlilik:** DYNAMIC "çerez yok, kişisel veri yok" vaadiyle
-çalışır; bu yüzden üçüncü taraf sohbet betiği **sayfa yüklenirken çağrılmaz**.
-Ziyaretçi düğmeye tıklayana kadar hiçbir üçüncü taraf isteği yapılmaz ve çerez
-kurulmaz. Sohbeti açan ziyaretçi için ise Crisp kendi çerezlerini kurar — bu
-durum `docs/PRIVACY.md`'de açıkça yazılıdır.
+**Masaüstü / telefon davranışı:**
+
+| Cihaz | Davranış |
+| --- | --- |
+| Masaüstü (≥768 px) | Crisp betiği sayfa ile birlikte yüklenir, sohbet **kendiliğinden açılır** (ziyaretçi kapatabilir, baloncuk köşede kalır). |
+| Telefon | Sohbet paneli ekranı kapattığı için betik yalnızca "Destek" düğmesine basıldığında yüklenir. |
+
+`VITE_CRISP_EAGER=0` ile masaüstündeki otomatik açma kapatılır (sohbet yalnızca
+düğmeyle açılır).
+
+> **Gizlilik notu:** Masaüstünde üçüncü taraf betiği her ziyaretçiye gider ve
+> Crisp kendi çerezlerini kurar. Bu, DYNAMIC'in **analitiğinin** çerezsiz
+> olmasıyla çelişmez ama sayfanın kendisi için bir istisnadır; açıkça
+> `docs/PRIVACY.md` bölüm 4'te belgelenmiştir.
 
 | Davranış | Nasıl |
 | --- | --- |
-| Tıklayınca yüklenir (varsayılan) | `src/lib/crisp.ts` → `openSupportChat()` |
-| Her sayfa görüntülemesinde yüklensin | `VITE_CRISP_EAGER=1` |
+| Masaüstünde sayfa ile yüklenir ve kendiliğinden açılır (varsayılan) | `src/lib/crisp.ts` → `autoStartSupportChat()` |
+| Sadece düğmeyle açılsın (masaüstü de) | `VITE_CRISP_EAGER=0` |
 | Sadece footer bağlantısı | `openSupportChat()` doğrudan çağrılır |
 
 Crisp panelinde yapılabilecekler: renk teması (`teal`), dil (`tr`), karşılama

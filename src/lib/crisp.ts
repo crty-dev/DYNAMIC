@@ -1,11 +1,10 @@
 /**
  * Crisp live chat.
  *
- * DYNAMIC does not track its visitors, so the third party chat script is not
- * loaded on page load: it is fetched the first time somebody asks for
- * support. Until then no request leaves the site and no third party cookie is
- * set - the promise in the hero ("no cookies, no personal data") stays true
- * for every visitor who does not open the chat.
+ * On a desktop the chat is loaded with the page and opens by itself, so a
+ * visitor does not have to look for a button. On a phone the chat panel would
+ * cover the whole screen, so the chat is only loaded when the visitor taps
+ * the launcher.
  *
  * The script and the website id are public by design (the browser needs
  * them). What the chat itself collects is documented in docs/PRIVACY.md.
@@ -20,16 +19,13 @@ type CrispWindow = Window & {
   CRISP_RUNTIME_CONFIG?: { locale?: string; disable_full_view?: boolean };
 };
 
-/** True when the operator asked for the widget to load on every page view. */
+/** The chat is only loaded on demand when this is off. */
 export function isCrispEager(): boolean {
-  return (
-    typeof import.meta !== "undefined" &&
-    import.meta.env?.VITE_CRISP_EAGER === "1"
-  );
+  return !(typeof import.meta !== "undefined" && import.meta.env?.VITE_CRISP_EAGER === "0");
 }
 
-/** Loads the chat (once) and opens the conversation. */
-export function openSupportChat({ open = true }: { open?: boolean } = {}): void {
+/** Loads the Crisp script (once) and applies the brand configuration. */
+function loadCrisp(): void {
   if (typeof window === "undefined") return;
   const w = window as CrispWindow;
 
@@ -49,5 +45,21 @@ export function openSupportChat({ open = true }: { open?: boolean } = {}): void 
   // ready. The brand colours follow the DYNAMIC palette.
   w.$crisp.push(["config", "color:theme", ["teal"]]);
   w.$crisp.push(["config", "locale", ["tr"]]);
-  if (open) w.$crisp.push(["do", "chat:open"]);
+}
+
+/** Loads the chat and opens the conversation. */
+export function openSupportChat(): void {
+  loadCrisp();
+  const w = window as CrispWindow;
+  w.$crisp?.push(["do", "chat:open"]);
+}
+
+/**
+ * Desktop behaviour: the chat is there from the first paint and opens by
+ * itself. The visitor can close it, the bubble stays in the corner.
+ */
+export function autoStartSupportChat(): void {
+  loadCrisp();
+  const w = window as CrispWindow;
+  w.$crisp?.push(["do", "chat:open"]);
 }

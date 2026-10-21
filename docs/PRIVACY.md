@@ -64,12 +64,14 @@ veri işlenmez; profilleme/otomatik karar yoktur).
   kapsamındadır.
 - Analytics çerezleri yalnızca **kendi sitenizde** kullanıyorsanız gerekir;
   DYNAMIC'in kendisi hiçbirini kurmaz.
-- **Pazarlama sitesindeki canlı destek (Crisp)**: üçüncü taraf sohbet betiği
-  sayfa yüklenirken **çağrılmaz**; yalnızca ziyaretçi footerdaki "Canlı
-  destek" bağlantısına tıkladığında yüklenir. O ana kadar hiçbir üçüncü taraf
-  isteği yapılmaz ve çerez kurulmaz. Tıklayan ziyaretçi için Crisp kendi
-  çerezlerini kurar ve sohbet içeriğini kendi sunucularında işler; bu nedenle
-  sohbet, DYNAMIC'in çerezsiz vaadi kapsamı **dışındadır** (bkz. bölüm 7).
+- **Pazarlama sitesindeki canlı destek (Crisp):** Masaüstünde üçüncü taraf
+  sohbet betiği sayfa ile birlikte yüklenir ve sohbet kendiliğinden açılır;
+  ziyaretçi kapatabilir. Bu yüzden masaüstü ziyaretçileri için Crisp kendi
+  çerezlerini kurar ve sohbet içeriğini kendi sunucularında işler. Telefonda
+  sohbet paneli ekranı kapattığı için betik yalnızca "Destek" düğmesine
+  basıldığında yüklenir. Bu durum DYNAMIC'in çerezsiz analitiği için
+  geçerli **değildir**; sohbet, ziyaretçi kendi isteğiyle başlattığı üçüncü
+  taraf bir hizmettir (bkz. bölüm 7).
 
 ## 5. Saklama ve silme
 
