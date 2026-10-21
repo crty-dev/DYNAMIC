@@ -2,6 +2,7 @@ export {
   API_ORIGIN,
   APP_BASE_PATH,
   authClient,
+  consoleUrl,
   fetchMailStatus,
   fetchSocialProviders,
 } from "../lib/auth-client";

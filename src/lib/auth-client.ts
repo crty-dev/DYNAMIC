@@ -89,3 +89,17 @@ export async function fetchMailStatus(): Promise<{
  */
 export const APP_BASE_PATH =
   typeof window !== "undefined" && /^\/app(\/|$)/.test(window.location.pathname) ? "/app" : "";
+
+/**
+ * An absolute URL inside the console, on the origin the visitor is using.
+ *
+ * Better Auth resolves a relative callback against its own base URL (the
+ * marketing origin), so a relative path would send a visitor who started on
+ * the app origin back to the marketing site. Absolute URLs keep the visitor
+ * where they started.
+ */
+export function consoleUrl(path = "/"): string {
+  if (typeof window === "undefined") return path;
+  const suffix = path.startsWith("/") ? path : `/${path}`;
+  return `${window.location.origin}${APP_BASE_PATH}${suffix}`;
+}

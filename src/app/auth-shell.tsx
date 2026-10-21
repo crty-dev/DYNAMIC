@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Lock, Mail, ShieldCheck, Zap, Eye, EyeOff, Code2, User } from "lucide-react";
-import { authClient, fetchSocialProviders, APP_BASE_PATH } from "./api";
+import { authClient, fetchSocialProviders, consoleUrl } from "../lib/auth-client";
 import GithubMark from "../landing/GithubMark";
 import logoMark from "../../images/png-to-webp/logo-removebg-preview.webp";
 
@@ -190,10 +190,12 @@ export function SocialButtons({
   const start = async (provider: "github" | "google") => {
     const { error } = await authClient.signIn.social({
       provider,
-      callbackURL: `${APP_BASE_PATH}/`,
+      // Absolute URLs: the callback of Better Auth runs on the marketing
+      // origin, a relative path would drop the visitor on the landing page.
+      callbackURL: consoleUrl("/"),
       // A failed flow (cancelled consent, denied scope) comes back to the
       // login page with a readable message instead of the raw error page.
-      errorCallbackURL: `${APP_BASE_PATH}/login?failed=social`,
+      errorCallbackURL: consoleUrl("/login?failed=social"),
     });
     if (error) onError("Sosyal giriş başlatılamadı. Lütfen tekrar deneyin.");
   };

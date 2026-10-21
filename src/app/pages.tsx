@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 import { ArrowRight, Check, LogOut, Mail, RefreshCw, Trash2, User } from "lucide-react";
 import {
   ApiError,
-  APP_BASE_PATH,
+  consoleUrl,
   authClient,
   fetchMailStatus,
   fmtInt,
@@ -192,7 +192,7 @@ export function Register() {
       name,
       email,
       password,
-      callbackURL: `${APP_BASE_PATH}/verify-email`,
+      callbackURL: consoleUrl("/verify-email"),
     });
     setBusy(false);
     if (signUpError) {
@@ -418,7 +418,7 @@ export function ForgotPassword() {
     setError(null);
     const { error: resetError } = await authClient.requestPasswordReset({
       email,
-      redirectTo: `${APP_BASE_PATH}/reset-password`,
+      redirectTo: consoleUrl("/reset-password"),
     });
     setBusy(false);
     if (resetError) {
