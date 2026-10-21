@@ -7,6 +7,7 @@ import { config, type AppEnv } from "./env";
 import { rateLimit } from "./rate-limit";
 import { siteByKey, siteByOrigin } from "./sites";
 import { goalsFor } from "./goals";
+import { RADAR_SCAN_LIMIT } from "./signature";
 import {
   errorCounts,
   listInsights,
@@ -107,6 +108,20 @@ export function createProjectsApp(): Hono<AppEnv> {
     }
   }
 
+  /**
+   * A write needs a proven address.
+   *
+   * The console sends an unverified account to the verification page, but the
+   * client is not the boundary: without this check anybody could create a
+   * project or a goal with an address they do not own.
+   */
+  async function requireVerified(c: Context<AppEnv>) {
+    const user = await currentUser(c);
+    if (!user) return { error: "unauthorized" as const, status: 401 as const };
+    if (!user.verified) return { error: "email_unverified" as const, status: 403 as const };
+    return { user };
+  }
+
   async function ownedProject(c: Context<AppEnv>, id: string) {
     const user = await currentUser(c);
     if (!user) return { error: "unauthorized" as const };
@@ -152,8 +167,9 @@ export function createProjectsApp(): Hono<AppEnv> {
   });
 
   app.post("/", async (c) => {
-    const user = await currentUser(c);
-    if (!user) return c.json({ error: "unauthorized" }, 401);
+    const guard = await requireVerified(c);
+    if ("error" in guard) return c.json({ error: guard.error }, guard.status);
+    const user = guard.user;
 
     const limit = rateLimit(`project:create:${user.id}`, PROJECT_CREATE_PER_HOUR, 3600_000);
     if (!limit.allowed) {
@@ -233,6 +249,8 @@ export function createProjectsApp(): Hono<AppEnv> {
   /* ---------------------------------------------------------------- rename */
 
   app.patch("/:id", async (c) => {
+    const guard = await requireVerified(c);
+    if ("error" in guard) return c.json({ error: guard.error }, guard.status);
     const found = await ownedProject(c, c.req.param("id"));
     if ("error" in found) {
       return found.error === "unauthorized"
@@ -281,6 +299,8 @@ export function createProjectsApp(): Hono<AppEnv> {
   });
 
   app.post("/:id/goals", async (c) => {
+    const guard = await requireVerified(c);
+    if ("error" in guard) return c.json({ error: guard.error }, guard.status);
     const found = await ownedProject(c, c.req.param("id"));
     if ("error" in found) {
       return c.json(
@@ -320,6 +340,8 @@ export function createProjectsApp(): Hono<AppEnv> {
   });
 
   app.delete("/:id/goals/:goal", async (c) => {
+    const guard = await requireVerified(c);
+    if ("error" in guard) return c.json({ error: guard.error }, guard.status);
     const found = await ownedProject(c, c.req.param("id"));
     if ("error" in found) {
       return c.json(
@@ -341,6 +363,8 @@ export function createProjectsApp(): Hono<AppEnv> {
   /* ---------------------------------------------------------------- delete */
 
   app.delete("/:id", async (c) => {
+    const guard = await requireVerified(c);
+    if ("error" in guard) return c.json({ error: guard.error }, guard.status);
     const found = await ownedProject(c, c.req.param("id"));
     if ("error" in found) {
       return found.error === "unauthorized"
@@ -500,6 +524,8 @@ export function createProjectsApp(): Hono<AppEnv> {
 
   /** A release marker that is set by hand (the SDK sends its own). */
   app.post("/:id/releases", async (c) => {
+    const guard = await requireVerified(c);
+    if ("error" in guard) return c.json({ error: guard.error }, guard.status);
     const found = await ownedProject(c, c.req.param("id"));
     if ("error" in found) {
       return c.json({ error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
@@ -547,6 +573,12 @@ export function createProjectsApp(): Hono<AppEnv> {
       return c.json({ error: found.error === "unauthorized" ? "unauthorized" : "not_found" },
         found.error === "unauthorized" ? 401 : 404);
     }
+    // The radar is the most expensive read of the console (several window
+    // queries per metric), so it is rate limited like the other reports.
+    const limit = rateLimit(`radar:${found.user.id}`, 20, 60_000);
+    if (!limit.allowed) {
+      return c.json({ error: "rate_limited", retryAfter: limit.retryAfter }, 429);
+    }
     const site = await siteOfProject(c, found.project.public_id);
     if (!site) {
       return c.json({ ok: true, release: null, metrics: [], segments: [], errors: null, timeline: [] });
@@ -555,6 +587,17 @@ export function createProjectsApp(): Hono<AppEnv> {
     const windowKey = c.req.query("window") ?? "24h";
     const windowMs = RADAR_WINDOWS[windowKey]?.ms ?? RADAR_WINDOWS["24h"]!.ms;
     const windowLabel = RADAR_WINDOWS[windowKey]?.label ?? "24 saat";
+
+    // The radar is the most expensive read of the console, so the answer is
+    // cached. ?fresh=1 asks for a new one.
+    const cache = caches.default;
+    const cacheKey = new Request(
+      `https://dynamic.internal/api/radar/${site.id}/${windowKey}/${c.req.query("release") ?? "latest"}`,
+    );
+    if (c.req.query("fresh") !== "1") {
+      const hit = await cache.match(cacheKey);
+      if (hit) return hit;
+    }
 
     const releases = await listReleases(c.env.DB, site.id);
     const requested = c.req.query("release");
@@ -588,6 +631,9 @@ export function createProjectsApp(): Hono<AppEnv> {
 
     const metrics: Comparison[] = metricNames.map((metric) =>
       compareMetric(metric, samples.get(metric) ?? [], releaseTs, windowMs),
+    );
+    const sampled = metricNames.some(
+      (metric) => (samples.get(metric) ?? []).length >= RADAR_SCAN_LIMIT,
     );
 
     // The dimensions are only shown when they are measurable on both sides.
@@ -629,7 +675,7 @@ export function createProjectsApp(): Hono<AppEnv> {
       ),
     };
 
-    return c.json({
+    const payload = c.json({
       ok: true,
       release: {
         id: release.id,
@@ -655,7 +701,18 @@ export function createProjectsApp(): Hono<AppEnv> {
       // A correlation is not a causation: the radar only says "the numbers
       // changed around this release", never "the release caused it".
       note: "Sürüm işareti ile ölçümler arasındaki ilişki nedensellik kanıtı değildir; eşzamanlı başka değişiklikler de etkili olabilir.",
+      // Honest about the scan: when a window holds more samples than the
+      // budget allows, the percentiles are calculated over the newest ones.
+      sampled: sampled,
+      ...(sampled
+        ? {
+            sampleNote: `Pencere başına en fazla ${RADAR_SCAN_LIMIT} ölçüm tarandı; yüzdelikler en yeni ölçümler üzerinden hesaplandı.`,
+          }
+        : {}),
     });
+    payload.headers.set("Cache-Control", "private, max-age=300");
+    await cache.put(cacheKey, payload.clone());
+    return payload;
   });
 
   /* =========================================================== fix-to-proof */
@@ -811,6 +868,8 @@ export function createProjectsApp(): Hono<AppEnv> {
 
   /** The owner marks an issue: under investigation, fixed or dismissed. */
   app.patch("/:id/insights/:fingerprint", async (c) => {
+    const guard = await requireVerified(c);
+    if ("error" in guard) return c.json({ error: guard.error }, guard.status);
     const found = await ownedProject(c, c.req.param("id"));
     if ("error" in found) {
       return c.json({ error: found.error === "unauthorized" ? "unauthorized" : "not_found" },

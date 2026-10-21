@@ -76,13 +76,26 @@ export async function upsertRelease(
 }
 
 /** The measurements of one metric in a time window, with their dimensions. */
+/**
+ * The number of samples the radar reads per metric and window.
+ *
+ * The Free plan allows five million rows a day, so a dashboard that reads
+ * every sample of every metric would eat the daily budget with a handful of
+ * views. The p75 of the most recent 5,000 samples is stable, and the response
+ * says when a scan was truncated.
+ */
+export const RADAR_SCAN_LIMIT = 5000;
+
+/**
+ * The measurements of one metric in a window, with their dimensions.
+ */
 export async function metricSamples(
   db: D1Database,
   siteId: number,
   metric: string,
   from: number,
   to: number,
-  limit = 20000,
+  limit = RADAR_SCAN_LIMIT,
 ): Promise<DimensionedSample[]> {
   const { results } = await db
     .prepare(
@@ -129,14 +142,15 @@ export async function plainSamples(
   metric: string,
   from: number,
   to: number,
+  limit = RADAR_SCAN_LIMIT,
 ): Promise<Sample[]> {
   const { results } = await db
     .prepare(
       `SELECT ts, value FROM events
         WHERE site_id = ? AND metric = ? AND ts >= ? AND ts < ? AND value IS NOT NULL
-        ORDER BY ts DESC LIMIT 20000`,
+        ORDER BY ts DESC LIMIT ?`,
     )
-    .bind(siteId, metric, from, to)
+    .bind(siteId, metric, from, to, limit)
     .all<{ ts: number; value: number }>();
   return results;
 }
@@ -202,13 +216,14 @@ export async function metricTimeline(
   from: number,
   to: number,
   bucketMs: number,
+  limit = RADAR_SCAN_LIMIT,
 ): Promise<TimelinePoint[]> {
   const { results } = await db
     .prepare(
       `WITH vals AS (
          SELECT CAST(ts / ? AS INTEGER) AS bucket, value FROM events
           WHERE site_id = ? AND metric = ? AND ts >= ? AND ts < ? AND value IS NOT NULL
-          LIMIT 20000
+          LIMIT ?
        ),
        ranked AS (
          SELECT bucket, value,
@@ -220,7 +235,7 @@ export async function metricTimeline(
               MAX(CASE WHEN rn = CAST((cnt - 1) * 0.75 AS INT) + 1 THEN value END) AS p75
          FROM ranked GROUP BY bucket ORDER BY bucket`,
     )
-    .bind(bucketMs, siteId, metric, from, to)
+    .bind(bucketMs, siteId, metric, from, to, limit)
     .all<{ bucket: number; samples: number; avg: number | null; p75: number | null }>();
   return results.map((row) => ({
     t: row.bucket * bucketMs,

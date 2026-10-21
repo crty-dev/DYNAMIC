@@ -52,6 +52,14 @@ export type Bindings = {
   /** Raises the per-path auth rate limits (self-hosting, tests). */
   AUTH_RATE_LIMIT_MAX?: string;
   /**
+   * Forces the address verification on or off.
+   *
+   * By default it follows the mail capability: with a provider every account
+   * has to prove its address, without one the requirement would lock everybody
+   * out of their own console. "1" forces it on, "0" turns it off.
+   */
+  AUTH_REQUIRE_EMAIL_VERIFICATION?: string;
+  /**
    * Header the client IP is read from. Cloudflare overwrites `cf-connecting-ip`
    * at the edge, so it is the only header a visitor cannot influence.
    * Self-hosters behind nginx should use `x-real-ip`.

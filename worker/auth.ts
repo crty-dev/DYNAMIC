@@ -108,8 +108,23 @@ function authErrorUrl(env: Bindings): string {
   }
 }
 
+/**
+ * Whether an account has to prove its address before it may use the console.
+ *
+ * The default follows the mail capability: with a provider every account has
+ * to verify, without one the requirement would lock everybody out of their own
+ * console. AUTH_REQUIRE_EMAIL_VERIFICATION decides it explicitly.
+ */
+export function requiresVerification(env: Bindings): boolean {
+  const explicit = (env.AUTH_REQUIRE_EMAIL_VERIFICATION ?? "").trim();
+  if (explicit === "1") return true;
+  if (explicit === "0") return false;
+  const { mail, isDev } = config(env);
+  return mail.enabled || isDev;
+}
+
 export function buildAuthOptions(env: Bindings): BetterAuthOptions {
-  const { appUrl, authBaseUrl, authSecret, turnstile, ipAddress, mail, isDev } = config(env);
+  const { appUrl, authBaseUrl, authSecret, turnstile, ipAddress } = config(env);
   const infraApiKey = env.BETTER_AUTH_API_KEY ?? "";
   const limitMax = Number(env.AUTH_RATE_LIMIT_MAX ?? 0) || null;
   const social = enabledSocialProviders(env);
@@ -175,8 +190,9 @@ export function buildAuthOptions(env: Bindings): BetterAuthOptions {
       // configured: without one no address can be proven, and the requirement
       // would lock every new account out of its own console. As soon as a
       // provider is set the verification is enforced again. In development the
-      // outbox delivers the mail, so the check stays active there.
-      requireEmailVerification: mail.enabled || isDev,
+      // outbox delivers the mail, so the check stays active there. The
+      // operator can decide with AUTH_REQUIRE_EMAIL_VERIFICATION.
+      requireEmailVerification: requiresVerification(env),
       autoSignIn: false,
       minPasswordLength: 10,
       maxPasswordLength: 128,

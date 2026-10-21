@@ -16,6 +16,7 @@ izleme ve sorun giderme.
 4. [DYNAMIC Console (uygulama) dağıtımı](#4-dynamic-console-uygulama-dağıtımı)
 4.1. [Yerel geliştirme](#41-yerel-geliştirme)
 5. [Süper admin paneli](#5-süper-admin-paneli)
+5b. [İmza özellikler (Change Radar, Privacy Gate, Fix-to-Proof)](#5b-imza-özellikler-change-radar-privacy-gate-fix-to-proof)
 6. [Environment variable ve secret listesi](#6-environment-variable-ve-secret-listesi)
 7. [Alan adı ve DNS kurulumu](#7-alan-adı-ve-dns-kurulumu)
 8. [Migration ve veritabanı işlemleri](#8-migration-ve-veritabanı-işlemleri)
@@ -332,6 +333,55 @@ olay limiti, goal, export, purge, erasure.
 
 ---
 
+## 5b. İmza özellikler (Change Radar, Privacy Gate, Fix-to-Proof)
+
+Üç özellik tek bir veri modeli üzerine kuruludur ve konsolda proje sayfasının
+altındaki üç panelde görünür: **Değişim Radarı**, **Fix-to-Proof** ve
+**Gizlilik Kapısı**.
+
+### Veri modeli (migration `0006_signature_features.sql`)
+
+| Tablo | İçerik |
+| --- | --- |
+| `releases` | Sürüm işaretleri (`version`, `deployed_at`). Kaynak kodu veya commit mesajı **tutmaz**. |
+| `events.release` | Ölçümün ait olduğu sürüm. |
+| `insights` | Bulunan sorunlar ve durumları (`open` / `investigating` / `fixed` / `dismissed`). |
+| `privacy_counters` | Engellenen payload sayıları — **yalnızca sayı**, değer yok. |
+
+### Uçlar (hepsi proje-scoped, oturum doğrulamalı)
+
+| Uç | Metot | Açıklama |
+| --- | --- | --- |
+| `/api/projects/:id/releases` | GET / POST | Sürüm işaretlerini listeler / işaretler. |
+| `/api/projects/:id/radar` | GET | Sürümün öncesi ve sonrası karşılaştırması + zaman çizelgesi. |
+| `/api/projects/:id/insights` | GET | Öneriler (ölçülmüş kanıtla). |
+| `/api/projects/:id/insights/:fingerprint` | PATCH | Durum değiştirir, düzeltmeyi bir sürüme bağlar. |
+| `/api/projects/:id/privacy` | GET | Etkin kurallar, engellenen kategoriler, güvenli sayaçlar. |
+| `/api/projects/:id/privacy/test` | POST | Sentezik (uydurma) testi — tarayıcıda çalışır, hiçbir değer sunucuya gitmez. |
+
+### SDK
+
+```js
+dynamic.release("2026.10.4");             // sürüm işareti
+dynamic.release("2026.10.4", deployTs);   // dağıtım zamanı belli
+dynamic.error(err, "unhandledrejection");  // JS hatası (redakte edilmiş)
+dynamic.privacy.selfTest();               // tarayıcıda sentetik test
+```
+
+### Bilinçli sınırlar
+
+- **Eşzamanlılık nedensellik değildir**: radar ölçüm değişimini gösterir, "sürüm
+  neden oldu" iddiasında bulunmaz.
+- **Az örnekte karar verilmez**: her iki pencerede de en az 20 ölçüm yoksa sonuç
+  "yeterli veri yok"tur.
+- **Privacy Gate mutlak PII tespiti vaat etmez**: kalıbı benzemeyen bir değer
+  geçebilir. Varsayılan ayar muhafazakardır; sunucu gelen paketi yine de
+  bağımsız olarak doğrular.
+- **Düzeltenme bir tuşe basmakla doğrulanmaz**: "düzeltildi" denebilmesi için
+  sürüm işareti öncesi/sonrası ölçümleri yeterli örnekle karşılaştırılmalıdır.
+
+---
+
 ## 6. Environment variable ve secret listesi
 
 ### 6.1 Secret'lar (Worker secret store — repoya yazılmaz)
@@ -360,6 +410,7 @@ olay limiti, goal, export, purge, erasure.
 | `MAX_SITES` | `500` | Self-serve site sayısı sınırı. |
 | `AUTH_IP_HEADERS` | `cf-connecting-ip` | Auth hız sınırının IP başlığı. |
 | `AUTH_TRUSTED_PROXIES` | — | Güvenilen proxy IP/CIDR listesi. |
+| `AUTH_REQUIRE_EMAIL_VERIFICATION` | — | `1` doğrulamayı zorlar, `0` kapatır. Varsayılan: mail sağlayıcısı varsa zorunlu, yoksa kapalı. |
 | `AUTH_RATE_LIMIT_MAX` | — | Test/self-host için path limitlerini yükseltir. |
 | `CLOUDINARY_CLOUD_NAME` | `di9c12gg6` | Medya teslimi için public cloud adı. |
 | `CLOUDINARY_UPLOAD_KEY` | — | Public upload API key. |
@@ -496,6 +547,7 @@ Upload uçları `MEDIA_UPLOAD_TOKEN` ile korunur; yoksa `503` döner.
 | Gövde/olay limitleri | 64 olay, 128 KB gövde, 4 KB attribution. |
 | Rapor önbelleği | Workers Cache API, 60 sn. `?fresh=1` önbelleği atlar. |
 | Hız sınırı | Admin API 30 istek/dk, rapor uçları 60/dk, ingest IP başına 120/dk. |
+| Değişim Radarı'nın maliyeti | Metrik başına pencere başına en fazla **5.000** örnek taranır (`RADAR_SCAN_LIMIT`), cevap 5 dk önbelleklenir, kullanıcı başına 20 istek/dk. Kesilen tarama cevapta `sampled` ile bildirilir. |
 | WAF kuralları | Cloudflare Dashboard → Security → WAF → Rate limiting (aşağıda). |
 
 **Önerilen WAF kuralı (Cloudflare Free):**

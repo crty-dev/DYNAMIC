@@ -18,6 +18,18 @@ export const CLOUDINARY_UPLOAD_KEY = import.meta.env?.VITE_CLOUDINARY_UPLOAD_KEY
 
 export const CLOUDINARY_DELIVERY_BASE = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
+/**
+ * A URL for a `srcset` candidate.
+ *
+ * The candidates of a srcset are separated by commas, and a Cloudinary
+ * transformation contains commas itself (`c_fit,h_76,w_152`). Without the
+ * encoding the browser splits the candidate at them and loads a broken URL -
+ * the image never appears. Cloudinary decodes %2C back to a comma.
+ */
+export function srcSetUrl(url: string): string {
+  return url.replace(/,/g, "%2C");
+}
+
 /** Folders used by the DYNAMIC media library. */
 export const CLOUDINARY_FOLDERS = {
   brand: "dynamic/brand",

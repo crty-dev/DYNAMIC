@@ -41,7 +41,19 @@ before(async () => {
 
   server = spawn(
     process.execPath,
-    [WRANGLER, "dev", "--port", String(PORT), "--ip", "127.0.0.1"],
+    [
+      WRANGLER,
+      "dev",
+      "--port",
+      String(PORT),
+      "--ip",
+      "127.0.0.1",
+      // The test servers share the local D1, so the site limit of the
+      // deployment would eventually reject the sites of the tests (the
+      // database keeps the ones of the previous runs).
+      "--var",
+      "MAX_SITES:100000",
+    ],
     { cwd: ROOT, stdio: "ignore" },
   );
 

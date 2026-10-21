@@ -40,6 +40,8 @@ before(async () => {
       "--ip",
       "127.0.0.1",
       "--var",
+      "MAX_SITES:100000",
+      "--var",
       "AUTH_RATE_LIMIT_MAX:2",
     ],
     { cwd: ROOT, stdio: "ignore" },

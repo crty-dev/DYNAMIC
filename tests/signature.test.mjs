@@ -231,6 +231,8 @@ before(async () => {
       "--ip",
       "127.0.0.1",
       "--var",
+      "MAX_SITES:100000",
+      "--var",
       "DEV_MODE:1",
       "--var",
       "AUTH_RATE_LIMIT_MAX:1000",
@@ -432,6 +434,30 @@ describe("Change Radar - the API", () => {
     });
     assert.equal(foreign.status, 404, "another tenant's project must not be readable");
     assert.equal(foreign.payload.error, "not_found");
+  });
+
+  it("limits how often the radar may be read", async () => {
+    const { jar } = await verifiedAccount("radar-limit");
+    const created = await api("/api/projects", {
+      jar,
+      method: "POST",
+      body: { name: "Limit", hostname: `radar-limit-${RUN}.example.com` },
+    });
+    const projectId = created.payload.project.id;
+
+    // The radar is the most expensive read of the console, so it answers
+    // 429 instead of scanning the database again and again.
+    let limited = null;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const response = await api(`/api/projects/${projectId}/radar?window=24h&fresh=1`, { jar });
+      if (response.status === 429) {
+        limited = response;
+        break;
+      }
+      assert.equal(response.status, 200, JSON.stringify(response.payload).slice(0, 120));
+    }
+    assert.ok(limited, "the radar must be rate limited");
+    assert.equal(limited.payload.error, "rate_limited");
   });
 });
 

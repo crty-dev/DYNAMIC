@@ -76,6 +76,8 @@ before(async () => {
       "--ip",
       "127.0.0.1",
       "--var",
+      "MAX_SITES:100000",
+      "--var",
       `DNS_RESOLVER_URL:http://127.0.0.1:${dnsPort}/dns-query`,
       "--var",
       "AUTH_RATE_LIMIT_MAX:1000",

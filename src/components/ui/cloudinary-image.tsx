@@ -1,6 +1,6 @@
 import { Cloudinary } from "@cloudinary/url-gen";
 import { fit } from "@cloudinary/url-gen/actions/resize";
-import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_DISABLED } from "@/lib/cloudinary";
+import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_DISABLED, srcSetUrl } from "@/lib/cloudinary";
 
 /**
  * Cloudinary-backed image with a local fallback.
@@ -54,7 +54,9 @@ export function CloudinaryImage({
   const base = build(width ?? 512);
   const candidates = width ? [width, width * 2] : [];
   const srcSet = candidates
-    .map((candidate) => `${build(candidate).toURL()} ${candidate}w`)
+    // The commas of a transformation must be encoded: a srcset separates its
+    // candidates with commas.
+    .map((candidate) => `${srcSetUrl(build(candidate).toURL())} ${candidate}w`)
     .join(", ");
 
   // Disabled mode: serve the bundled file, never contact a third party.
