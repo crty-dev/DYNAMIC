@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
+import { resetTestDatabase, TEST_CONFIG } from "./helpers/server.mjs";
 
 /**
  * The auth rate limiter buckets requests per client IP, so the IP header
@@ -22,9 +23,10 @@ let dev;
 
 before(async () => {
   await assertPortFree();
+  resetTestDatabase();
   const migrate = spawnSync(
     process.execPath,
-    [WRANGLER, "d1", "migrations", "apply", "dynamic", "--local"],
+    [WRANGLER, "d1", "migrations", "apply", "dynamic-test", "--local", "--config", TEST_CONFIG],
     { cwd: ROOT, encoding: "utf8" },
   );
   assert.equal(migrate.status, 0, `${migrate.stdout}\n${migrate.stderr}`);
@@ -39,8 +41,8 @@ before(async () => {
       String(PORT),
       "--ip",
       "127.0.0.1",
-      "--var",
-      "MAX_SITES:100000",
+      "--config",
+      TEST_CONFIG,
       "--var",
       "AUTH_RATE_LIMIT_MAX:2",
     ],

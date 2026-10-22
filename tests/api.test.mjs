@@ -3,6 +3,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
+import { resetTestDatabase, TEST_CONFIG } from "./helpers/server.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PORT = Number(process.env.DYNAMIC_TEST_PORT ?? 8791);
@@ -30,9 +31,10 @@ before(async () => {
   ORIGIN = `https://test-${run}.dynamic.local`;
   OTHER_ORIGIN = `https://other-${run}.dynamic.local`;
 
+  resetTestDatabase();
   const migrate = spawnSync(
     process.execPath,
-    [WRANGLER, "d1", "migrations", "apply", "dynamic", "--local"],
+    [WRANGLER, "d1", "migrations", "apply", "dynamic-test", "--local", "--config", TEST_CONFIG],
     { cwd: ROOT, encoding: "utf8" },
   );
   if (migrate.status !== 0) {
@@ -48,11 +50,11 @@ before(async () => {
       String(PORT),
       "--ip",
       "127.0.0.1",
+      "--config",
+      TEST_CONFIG,
       // The test servers share the local D1, so the site limit of the
       // deployment would eventually reject the sites of the tests (the
       // database keeps the ones of the previous runs).
-      "--var",
-      "MAX_SITES:100000",
     ],
     { cwd: ROOT, stdio: "ignore" },
   );

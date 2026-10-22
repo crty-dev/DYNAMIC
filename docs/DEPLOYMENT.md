@@ -210,6 +210,30 @@ Adaptör sağlayıcıdan bağımsızdır (Resend, Postmark, kendi SMTP geçidi�
 `POST {MAIL_PROVIDER_URL}` gövdesi `{ from, to[], subject, text, html }`,
 başlık `Authorization: Bearer {MAIL_PROVIDER_TOKEN}`.
 
+### 4.4.1 `mail.crty-dev.com` DNS kontrol listesi
+
+Gönderen adres `DYNAMIC <no-reply@mail.crty-dev.com>` (Worker `MAIL_FROM`
+değişkeni). Sağlayıcı Resend ise (`MAIL_PROVIDER_URL` = `https://api.resend.com/emails`),
+Resend **Domains → Add Domain** ekranında `mail.crty-dev.com` için üç kaydı
+verir; DNS sağlayıcınıza **yalnızca** şunları ekleyin:
+
+| Tip | Ad | Değer | Neden |
+| --- | --- | --- | --- |
+| TXT | `resend._domainkey.mail` | Resend'in verdiği `p=...` değeri | **DKIM** — imza doğrulaması |
+| TXT | `mail` | `v=spf1 include:amazonses.com ~all` | **SPF** — gönderen sunucuyu yetkilendirir |
+| MX | `send` | `feedback-smtp.us-east-1.amazonses.com` (öncelik 10) | **Geri dönüş** (bounce) trafiği |
+
+**DMARC** ayrı bir kayıt değildir; SPF ve DKIM hazır olduktan sonra
+`_dmarc.mail` için `TXT` kaydı `v=DMARC1; p=none; rua=mailto:dmarc@crty-dev.com`
+olarak **isteğe bağlı** olarak eklenebilir. DMARC `p=reject` ile başlamayın:
+ilk e-postalar alınmadan önce SPF/DKIM hizalamasının oturması gerekir.
+
+> Doğrulama durumunu yalnızca sağlayıcının panelinden okuyun: mail
+> kutularına erişimimiz olmadığı için teslimatı veya DNS'i doğrulanmış
+> saymayız. Çalışma kanıtı: üretimdeki `info@crty-dev.com` hesabı
+> `emailVerified = 1` — yani doğrulama e-postası ulaştı ve bağlantı
+> tıklandı.
+
 > **Güvenlik notu:** Prod'da e-posta gönderimi `waitUntil` ile **arka planda**
 > yapılır; yanıt süresi, adresin bir hesaba ait olup olmadığını ele vermez.
 > Geliştirmede outbox'a yazılır ve istek yanıtlanmadan önce hazır olur.
@@ -536,6 +560,30 @@ npm run cloudinary:link      # API secret'ını .dev.vars'a yazar
 
 Upload uçları `MEDIA_UPLOAD_TOKEN` ile korunur; yoksa `503` döner.
 
+### 10.1 Cloudinary API secret'ı rotasyonu (sızdırılmışsa)
+
+API secret'ı bir yerde görünür olduysa **rotasyon** gerekir (değeri hiçbir
+loga, commit'e veya sohbete yazmayın):
+
+1. Cloudflare Dashboard → hesap sahibi → **Email addresses** bölümündeki
+   `no-reply@mail.crty-dev.com` adresinin doğrulanmış olduğundan emin olun
+   (teslimatın çalışması için gerekir).
+2. Cloudinary konsolunda **Settings → API Keys** ekranından **yeni bir API
+   secret** üretin. Cloudinary'de birden fazla secret tutulabilir; eskisi
+   hemen iptal edilmez.
+3. Yeni secret'ı Worker'a yazın:
+   ```bash
+   npx wrangler secret put CLOUDINARY_URL
+   # cloudinary://<api_key>:<yeni_secret>@<cloud>
+   ```
+4. `npm run deploy` ile yayınlayın ve **gerçekten görüntü yüklendiğini**
+   doğrulayın: `https://dynamic.crty-dev.com/` sayfasındaki marka ve ürün
+   görselleri 200 dönmeli, konsolda 404/403 olmamalı.
+5. **Eski secret'ı Cloudinary konsolunda iptal edin** (Settings → API Keys →
+   eski anahtarı sil/disable). Adım 4 doğrulanmadan iptal etmeyin.
+6. `CLOUDINARY_URL` değiştiği için Worker'ın **oturum/çerez değil**, yalnızca
+   görsel teslimatı etkilenir; kullanıcı oturumları bozulmaz.
+
 ---
 
 ## 11. Free plan koruması
@@ -553,10 +601,35 @@ Upload uçları `MEDIA_UPLOAD_TOKEN` ile korunur; yoksa `503` döner.
 **Önerilen WAF kuralı (Cloudflare Free):**
 
 ```
-Cloudflare Dashboard → Security → WAF → Rate limiting rules
-  Expression:  http.request.uri.path eq "/api/collect"
-  Requests:    60 / 1 min per IP
+### 11.1 Cloudflare WAF hız sınırı kuralı (Free plan gerçekleri)
+
+Rate limiting kuralı **Free planda da var**, ama kısıtları sert (Cloudflare
+"Rate limiting rules → Availability" tablosu):
+
+| Kısıt | Free | Pro/Business |
+| --- | --- | --- |
+| Kural sayısı | **1** | 2 / 5 |
+| Sayma penceresi | **yalnızca 10 sn** | 10 sn – 1 dk / 10 dk |
+| Mitigation süresi | **yalnızca 10 sn** | 10 sn – 1 saat |
+| İfade alanları | **Path, Verified Bot** | Host, Method, Source IP… |
+| Sayaç özelliği | IP | IP (+Business'te NAT) |
+
+Bu yüzden "60 istek / 1 dakika" biçiminde bir kural **Free planda
+kurulamaz**. Free planda tek bir kural varsa:
+
 ```
+Cloudflare Dashboard → Security → WAF → Rate limiting rules
+  Expression:   http.request.uri.path eq "/api/auth/sign-in/email"
+  Requests:     10 / 10 sn per IP
+  Action:       Block, 10 sn mitigation
+```
+
+> **Tavsiye: varsayılan olarak WAF kuralı eklemeyin.** Uygulamanın kendi
+> sınırı zaten var (`/api/collect` → IP başına 120 istek/dk, `/api/auth/*` →
+> Better Auth'ın kendi sınırı) ve Free plandaki 10 saniyelik pencere meşru
+> telemetry'yi (aynı NAT arkasındaki çok sayıda ziyaretçi) yanlışlıkla
+> kesebilir. Tek kuralı kullanacaksanız en dar yolu (kimlik doğrulama) seçin;
+> `/api/collect` için eklemeyin.
 
 ---
 

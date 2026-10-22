@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
+import { resetTestDatabase, TEST_CONFIG } from "./helpers/server.mjs";
 
 /**
  * An account that has not proven its address may look, but it may not change
@@ -23,9 +24,10 @@ const RUN = Date.now().toString(36);
 let dev;
 
 before(async () => {
+  resetTestDatabase();
   const migrate = spawnSync(
     process.execPath,
-    [WRANGLER, "d1", "migrations", "apply", "dynamic", "--local"],
+    [WRANGLER, "d1", "migrations", "apply", "dynamic-test", "--local", "--config", TEST_CONFIG],
     { cwd: ROOT, encoding: "utf8" },
   );
   assert.equal(migrate.status, 0, `${migrate.stdout}\n${migrate.stderr}`);
@@ -39,8 +41,8 @@ before(async () => {
       String(PORT),
       "--ip",
       "127.0.0.1",
-      "--var",
-      "MAX_SITES:100000",
+      "--config",
+      TEST_CONFIG,
       "--var",
       "DEV_MODE:1",
       "--var",

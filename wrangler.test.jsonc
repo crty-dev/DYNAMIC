@@ -1,0 +1,37 @@
+{
+  // Test yapılandırması: yerel geliştirme veritabanından AYRI bir D1
+  // kullanır, böylece testler geliştiricinin çalışma verisine dokunmaz.
+  //
+  // Bu dosya yalnızca yerelde kullanılır; uzak bir veritabanı oluşturmaz.
+  // database_id yer tutucusu yerel geliştirmede kullanılmaz.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dynamic-test",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "none",
+    "html_handling": "none"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dynamic-test",
+      "database_id": "00000000-0000-4000-8000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "CLOUDINARY_CLOUD_NAME": "di9c12gg6",
+    "CLOUDINARY_UPLOAD_KEY": "657115753521274",
+    "MAX_SITES": "500",
+    "APP_URL": "http://localhost:5174",
+    "MARKETING_URL": "http://localhost:5173",
+    "MAIL_FROM": "DYNAMIC <no-reply@mail.crty-dev.com>",
+    "AUTH_IP_HEADERS": "cf-connecting-ip"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
