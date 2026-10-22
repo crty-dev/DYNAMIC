@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { authClient, API_ORIGIN } from "../lib/auth-client";
+import { APP_URL } from "../lib/app-url";
 import logoMark from "../../images/png-to-webp/logo-removebg-preview.webp";
 import "./admin.css";
 
@@ -65,6 +66,14 @@ function fmtInt(value: number | undefined | null): string {
 
 /* ------------------------------------------------------------------- gate */
 
+/**
+ * The console lives on its own origin, but the session cookie is shared
+ * (AUTH_COOKIE_DOMAIN), so a sign in there covers this panel as well. These
+ * links are the fallback for a visitor who is not signed in yet.
+ */
+const CONSOLE_LOGIN = `${APP_URL}/login`;
+const CONSOLE_FORGOT = `${APP_URL}/forgot-password`;
+
 function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -116,6 +125,11 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
         <button className="super__btn" type="submit" disabled={busy}>
           {busy ? "Giriş yapılıyor…" : "Giriş yap"}
         </button>
+        <p className="super__hint">
+          Aynı hesap Console&apos;da da kullanılıyor:{" "}
+          <a href={CONSOLE_LOGIN}>Console giriş ekranı</a> ·{" "}
+          <a href={CONSOLE_FORGOT}>Şifremi unuttum</a>
+        </p>
       </form>
     </div>
   );

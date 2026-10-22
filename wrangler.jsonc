@@ -31,6 +31,10 @@
     "APP_URL": "https://app.dynamic.crty-dev.com",
     "MARKETING_URL": "https://dynamic.crty-dev.com",
     "MAIL_FROM": "DYNAMIC <no-reply@mail.crty-dev.com>",
+    // The session cookie is shared by the two origins of the site
+    // (dynamic.crty-dev.com and app.dynamic.crty-dev.com), so one sign in
+    // covers the console and the super admin panel.
+    "AUTH_COOKIE_DOMAIN": ".crty-dev.com",
     // Client IP for the auth rate limiter. Cloudflare overwrites this header
     // at the edge, so it cannot be spoofed by the visitor.
     "AUTH_IP_HEADERS": "cf-connecting-ip"

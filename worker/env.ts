@@ -43,6 +43,15 @@ export type Bindings = {
    * can promote everybody else afterwards.
    */
   ADMIN_EMAILS?: string;
+  /**
+   * The domain the session cookie is shared on (e.g. ".crty-dev.com").
+   *
+   * The console and the marketing site are two origins of the same site: with
+   * a shared cookie one sign in covers both and the super admin panel does
+   * not ask for the password a second time. Without it the cookie stays
+   * host only, which is the safer default.
+   */
+  AUTH_COOKIE_DOMAIN?: string;
   /** DNS-over-HTTPS resolver used for the TXT verification. */
   DNS_RESOLVER_URL?: string;
   /** Enables the local mail outbox + relaxed dev behaviour. Never in production. */
@@ -146,6 +155,10 @@ export function config(env: Bindings) {
       // one shared bucket instead of its own.
       headers: list(env.AUTH_IP_HEADERS, ["cf-connecting-ip"]),
       trustedProxies: list(env.AUTH_TRUSTED_PROXIES, []),
+    },
+    auth: {
+      // The shared cookie domain (null = host only cookies).
+      cookieDomain: (env.AUTH_COOKIE_DOMAIN ?? "").trim() || null,
     },
     authSecret: env.BETTER_AUTH_SECRET ?? null,
   };

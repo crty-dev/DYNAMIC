@@ -124,7 +124,7 @@ export function requiresVerification(env: Bindings): boolean {
 }
 
 export function buildAuthOptions(env: Bindings): BetterAuthOptions {
-  const { appUrl, authBaseUrl, authSecret, turnstile, ipAddress } = config(env);
+  const { appUrl, authBaseUrl, authSecret, turnstile, ipAddress, auth } = config(env);
   const infraApiKey = env.BETTER_AUTH_API_KEY ?? "";
   const limitMax = Number(env.AUTH_RATE_LIMIT_MAX ?? 0) || null;
   const social = enabledSocialProviders(env);
@@ -227,7 +227,13 @@ export function buildAuthOptions(env: Bindings): BetterAuthOptions {
     advanced: {
       cookiePrefix: "dynamic",
       useSecureCookies: true,
-      crossSubDomainCookies: { enabled: false },
+      // The console and the marketing site are two origins of the same site.
+      // With a shared cookie one sign in covers both, so the super admin
+      // panel does not ask for the password a second time. The session rows
+      // live in D1 and are not touched by this, so no session is invalidated.
+      crossSubDomainCookies: auth.cookieDomain
+        ? { enabled: true, domain: auth.cookieDomain }
+        : { enabled: false },
       ipAddress: {
         // The client IP is read from a header the visitor cannot influence
         // (`cf-connecting-ip` on Cloudflare). Without this the default

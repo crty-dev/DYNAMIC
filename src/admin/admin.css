@@ -122,6 +122,19 @@
   font-size: 13px;
 }
 
+.super__hint {
+  margin: 14px 0 0;
+  color: var(--dyn-faint, #7f99ad);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.super__hint a {
+  color: var(--dyn-teal, #23d8ca);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* ------------------------------------------------------------------- bar */
 
 .super__bar {
