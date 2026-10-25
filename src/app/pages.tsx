@@ -104,7 +104,9 @@ export function Login() {
       return;
     }
     const from = (location.state as { from?: string } | null)?.from;
-    navigate(from ?? "/", { replace: true });
+    // After sign-in take the visitor to the Console, not the landing page
+    // and not the super-admin dashboard.
+    navigate(from ?? "/demo", { replace: true });
   };
 
   return (

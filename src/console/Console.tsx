@@ -41,8 +41,8 @@ type NavItem = {
 
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
-    title: "Overview",
-    items: [{ to: "/demo", label: "Dashboard", icon: BarChart3, end: true }],
+    title: "Console",
+    items: [{ to: "/demo", label: "Console", icon: BarChart3, end: true }],
   },
   {
     title: "Analytics",
@@ -67,7 +67,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
 
 const PAGE_META: Record<string, { title: string; subtitle: string }> = {
   "/demo": {
-    title: "Dashboard",
+    title: "Console",
     subtitle:
       "Everything your site collected in the selected window — visitors, pageviews and Web Vitals, straight from D1.",
   },
